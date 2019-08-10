@@ -17,6 +17,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_validate
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
 from did import DISVM
 
 def sex_converter(sex_):
@@ -38,13 +39,27 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
 
-X, pheno = problem.get_data(atlas='cc200', kind='partial correlation')
+X_cc, pheno = problem.get_data(atlas='cc200', kind='partial correlation',return_pheno=True)
+X_aal = problem.get_data(atlas='aal', kind='partial correlation')
+X_ho = problem.get_data(atlas='ho', kind='partial correlation')
 y = pheno['DX'].values
 #clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
+
+
 clf = make_pipeline(StandardScaler(), SVC(kernel='linear'))
 
-results = cross_validate(clf, X, y, scoring=['roc_auc', 'accuracy'], cv=5,
-                         verbose=1, return_train_score=True, n_jobs=3)
+
+#results = cross_validate(clf, X, y, scoring=['roc_auc', 'accuracy'], cv=5,
+#                         verbose=1, return_train_score=True, n_jobs=3)
+
+skf = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 144)
+for train, test in skf.split(X_cc, y):
+    clf_cc = make_pipeline(StandardScaler(), SVC(kernel='linear'))
+    clf_aal = make_pipeline(StandardScaler(), SVC(kernel='linear'))
+    clf_ho = make_pipeline(StandardScaler(), SVC(kernel='linear'))
+    clf_cc.fit(X_cc[train], y[train])
+    clf_aal.fit(X_aal[train], y[train])
+    clf_ho.fit(X_ho[train], y[train])
 
 
 sex_ = pheno['Sex']
@@ -59,10 +74,13 @@ age = scaler.fit_transform(age_.values.reshape(-1, 1))
 iq = scaler.fit_transform(iq_.values.reshape(-1, 1))
 hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
 
-print(get_hsic(X, sex))
-print(get_hsic(X, age))
-print(get_hsic(X, iq))
-print(get_hsic(X, hand))
+
+
+
+#print(get_hsic(X, sex))
+#print(get_hsic(X, age))
+#print(get_hsic(X, iq))
+#print(get_hsic(X, hand))
 
 #A = np.concatenate((sex, hand), axis=1)
 

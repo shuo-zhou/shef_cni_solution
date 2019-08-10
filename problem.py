@@ -46,7 +46,7 @@ def _load_data(partition='Training', atlas='cc200'):
             
     return data, pheno_df_
 
-def get_data(kind='tangent', atlas='aal'):
+def get_data(kind='tangent', atlas='cc200', return_pheno=False):
     pheno_path = os.path.join(base_dir, 'pheno.csv')
     
     data_path = os.path.join(base_dir, 'X_%s_%s.npy'%(atlas, kind))
@@ -64,7 +64,10 @@ def get_data(kind='tangent', atlas='aal'):
             pheno = pd.concat([pheno_train, pheno_valid])
             pheno.to_csv(pheno_path, index=False)
     pheno = pd.read_csv(pheno_path)
-    return X, pheno
+    if return_pheno:
+        return X, pheno
+    else:
+        return X
     
 
 def get_train_data(atlas='cc200'):
