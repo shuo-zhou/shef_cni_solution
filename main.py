@@ -16,6 +16,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_validate
 from sklearn.metrics.pairwise import pairwise_kernels
+from sklearn.metrics import accuracy_score, roc_auc_score
+from did import DISVM
 
 def sex_converter(sex_):
     sex = np.ones(sex_.shape)
@@ -36,8 +38,8 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
 
-X, pheno = problem.get_data(atlas='ho')
-y = pheno['DX']
+X, pheno = problem.get_data(atlas='cc200', kind='partial correlation')
+y = pheno['DX'].values
 #clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
 clf = make_pipeline(StandardScaler(), SVC(kernel='linear'))
 
@@ -61,3 +63,23 @@ print(get_hsic(X, sex))
 print(get_hsic(X, age))
 print(get_hsic(X, iq))
 print(get_hsic(X, hand))
+
+#A = np.concatenate((sex, hand), axis=1)
+
+#from sklearn.model_selection import StratifiedKFold
+#for i in range(10):
+#    skf = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 144 * i)
+#    pred = np.zeros(y.shape)
+#    dec = np.zeros(y.shape)
+#    for train, test in skf.split(X, y):
+#        y_temp = np.zeros(y.shape)
+#        y_temp[train] = y[train]
+#        clf=DISVM()
+#        clf.fit(X, y_temp, A)
+#        pred[test]=clf.predict(X[test])
+#        dec[test]=clf.decision_function(X[test])
+#    print('Acc',accuracy_score(y, pred))
+#    print('AUC',roc_auc_score(y, dec))
+
+        
+    

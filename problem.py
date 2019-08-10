@@ -11,7 +11,9 @@ import pandas as pd
 from nilearn.connectome import ConnectivityMeasure
 from sklearn.preprocessing import FunctionTransformer
 
-base_dir = 'D:/CNI19'
+#base_dir = 'D:/CNI19'
+base_dir = '/home/shuoz/data/CNI19'
+
 #train_path = 'D:/CNI19/2019_CNI_TrainingRelease-master'
 #valid_path = 'D:/CNI19/2019_CNI_ValidationRelease-master'
 #
@@ -28,7 +30,7 @@ def _load_fmri(sub_ids, path, atlas='cc200'):
 def _load_data(partition='Training', atlas='cc200'):
     path = os.path.join(base_dir, '2019_CNI_%sRelease-master'%partition)
     
-    pheno_path = os.path.join(path, 'SupportingInfo/phenotypic_%s.csv'%partition)
+    pheno_path = os.path.join(path, 'SupportingInfo/phenotypic_%s.csv'%partition.lower())
     
     pheno_df = pd.read_csv(pheno_path)
     
