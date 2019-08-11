@@ -17,7 +17,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_validate
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.metrics import accuracy_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 from did import DISVM
 
 def sex_converter(sex_):
@@ -54,12 +54,22 @@ clf = make_pipeline(StandardScaler(), SVC(kernel='linear'))
 
 skf = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 144)
 for train, test in skf.split(X_cc, y):
-    clf_cc = make_pipeline(StandardScaler(), SVC(kernel='linear'))
-    clf_aal = make_pipeline(StandardScaler(), SVC(kernel='linear'))
-    clf_ho = make_pipeline(StandardScaler(), SVC(kernel='linear'))
-    clf_cc.fit(X_cc[train], y[train])
-    clf_aal.fit(X_aal[train], y[train])
-    clf_ho.fit(X_ho[train], y[train])
+    clf_cc = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
+    Xcc_tr, Xcc_te, y_tr, y_te = train_test_split(X_cc[train], y[train],
+                                                  test_size=0.2, random_state=0)
+    clf_cc.fit(Xcc_tr, y_tr)
+    
+    clf_aal = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
+    Xaal_tr, Xaal_te, y_tr, y_te = train_test_split(X_aal[train], y[train],
+                                                    test_size=0.2, random_state=0)
+    clf_aal.fit(Xaal_tr, y_tr)
+    
+    clf_ho = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
+    Xho_tr, Xho_te, y_tr, y_te = train_test_split(X_ho[train], y[train],
+                                                  test_size=0.2, random_state=0)    
+    clf_ho.fit(Xho_tr, y_tr)
+    
+    emsemble_clf = LogisticRegression(C=1.)
 
 
 sex_ = pheno['Sex']
