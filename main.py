@@ -69,7 +69,7 @@ for train, test in skf.split(X_cc, y):
                                                   test_size=0.2, random_state=0)    
     clf_ho.fit(Xho_tr, y_tr)
     
-    emsemble_clf = LogisticRegression(C=1.)
+    meta_clf = LogisticRegression(C=1.)
 
 
 sex_ = pheno['Sex']
