@@ -38,10 +38,12 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     Ky = pairwise_kernels(Y, metric = kernel_y, **kwargs)
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
-
-X_cc, pheno = problem.get_data(atlas='cc200', kind='partial correlation',return_pheno=True)
-X_aal = problem.get_data(atlas='aal', kind='partial correlation')
-X_ho = problem.get_data(atlas='ho', kind='partial correlation')
+kind= 'tangent'
+#kind= 'covariance'
+#kind= 'correlation'
+Xcc, pheno = problem.get_data(atlas='cc200', kind=kind,return_pheno=True)
+Xaal = problem.get_data(atlas='aal', kind=kind)
+Xho = problem.get_data(atlas='ho', kind=kind)
 y = pheno['DX'].values
 #clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
 
@@ -53,24 +55,49 @@ clf = make_pipeline(StandardScaler(), SVC(kernel='linear'))
 #                         verbose=1, return_train_score=True, n_jobs=3)
 
 skf = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 144)
-for train, test in skf.split(X_cc, y):
-    clf_cc = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
-    Xcc_tr, Xcc_te, y_tr, y_te = train_test_split(X_cc[train], y[train],
-                                                  test_size=0.2, random_state=0)
-    clf_cc.fit(Xcc_tr, y_tr)
-    
-    clf_aal = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
-    Xaal_tr, Xaal_te, y_tr, y_te = train_test_split(X_aal[train], y[train],
-                                                    test_size=0.2, random_state=0)
-    clf_aal.fit(Xaal_tr, y_tr)
-    
-    clf_ho = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
-    Xho_tr, Xho_te, y_tr, y_te = train_test_split(X_ho[train], y[train],
-                                                  test_size=0.2, random_state=0)    
-    clf_ho.fit(Xho_tr, y_tr)
-    
-    meta_clf = LogisticRegression(C=1.)
 
+#pred = np.zeros(y.shape)
+#prob = np.zeros(y.shape)
+#for train, test in skf.split(Xcc, y):
+#    clf_cc = make_pipeline(StandardScaler(), LogisticRegression(C=1.))#SVC(kernel='linear', probability=True))
+#    clf_aal = make_pipeline(StandardScaler(), LogisticRegression(C=1.))#SVC(kernel='linear', probability=True))
+#    clf_ho = make_pipeline(StandardScaler(), LogisticRegression(C=1.))#SVC(kernel='linear', probability=True))
+#    tr_idx, va_idx = train_test_split(range(y[train].size), test_size=0.33,
+#                                      shuffle=True, random_state=42)
+#    
+#    
+#    
+#    clf_cc.fit(Xcc[train][tr_idx], y[train][tr_idx])
+#    clf_aal.fit(Xaal[train][tr_idx], y[train][tr_idx])
+#    clf_ho.fit(Xho[train][tr_idx], y[train][tr_idx])
+#    
+#    prob_cc_valid = clf_cc.predict_proba(Xcc[train][va_idx])
+#    prob_aal_valid = clf_aal.predict_proba(Xaal[train][va_idx])
+#    prob_ho_valid = clf_ho.predict_proba(Xho[train][va_idx])
+#    
+#    meta_clf = LogisticRegression(C=1.)
+#    
+#    meta_clf.fit(np.concatenate([prob_cc_valid, prob_aal_valid, prob_ho_valid], 
+#                                axis=1), y[train][va_idx])
+#    
+#    prob_cc_test = clf_cc.predict_proba(Xcc[test])
+#    prob_aal_test = clf_aal.predict_proba(Xaal[test])
+#    prob_ho_test = clf_ho.predict_proba(Xho[test])
+#    
+#    pred[test]=meta_clf.predict(np.concatenate([prob_cc_test, prob_aal_test, prob_ho_test], axis=1))
+#    prob[test]=meta_clf.predict_proba(np.concatenate([prob_cc_test, prob_aal_test, prob_ho_test], axis=1))[:,0]
+    
+    
+# =============================================================================
+#     clf_cc = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
+#     clf_cc.fit(Xcc[train], y[train])
+#     pred[test] = clf_cc.predict(Xcc[test])
+#     prob[test] = clf_cc.predict_proba(Xcc[test])[:,0]
+# =============================================================================
+    
+    
+#print('Acc',accuracy_score(y, pred))
+#print('AUC',roc_auc_score(y, prob))
 
 sex_ = pheno['Sex']
 age_ = pheno['Age']
@@ -92,22 +119,29 @@ hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
 #print(get_hsic(X, iq))
 #print(get_hsic(X, hand))
 
-#A = np.concatenate((sex, hand), axis=1)
-
+A = np.concatenate((sex, hand), axis=1)
+#A = sex
+scaler = StandardScaler()
+X = scaler.fit_transform(Xcc)
+#X=Xho
+acc = []
+auc = []
 #from sklearn.model_selection import StratifiedKFold
-#for i in range(10):
-#    skf = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 144 * i)
-#    pred = np.zeros(y.shape)
-#    dec = np.zeros(y.shape)
-#    for train, test in skf.split(X, y):
-#        y_temp = np.zeros(y.shape)
-#        y_temp[train] = y[train]
-#        clf=DISVM()
-#        clf.fit(X, y_temp, A)
-#        pred[test]=clf.predict(X[test])
-#        dec[test]=clf.decision_function(X[test])
-#    print('Acc',accuracy_score(y, pred))
-#    print('AUC',roc_auc_score(y, dec))
+for i in range(10):
+    skf = StratifiedKFold(n_splits = 2, shuffle = True, random_state = 144 * i)
+    pred = np.zeros(y.shape)
+    dec = np.zeros(y.shape)
+    for train, test in skf.split(X, y):
+        y_temp = np.zeros(y.shape)
+        y_temp[train] = y[train]
+        clf=DISVM()
+        clf.fit(X, y_temp, A)
+        pred[test]=clf.predict(X[test])
+        dec[test]=clf.decision_function(X[test])
+    acc.append(accuracy_score(y, pred))
+    auc.append(roc_auc_score(y, dec))
+    print('Acc',acc[-1])
+    print('AUC',auc[-1])
 
         
     
