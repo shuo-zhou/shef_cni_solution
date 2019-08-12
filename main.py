@@ -18,6 +18,7 @@ from sklearn.model_selection import cross_validate
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
+from nilearn.connectome import ConnectivityMeasure
 from did import DISVM
 from get_adhd200_data import load_adhd200
 
@@ -27,7 +28,7 @@ def sex_converter(sex_):
         if sex_.loc[i] == 'M':
             sex[i] = 1
         else:
-            sex[i] = -1
+            sex[i] = 0
             
     return sex
 
@@ -39,15 +40,35 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     Ky = pairwise_kernels(Y, metric = kernel_y, **kwargs)
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
-Xsrc, pheno_src = load_adhd200()
 
 kind= 'tangent'
 #kind= 'covariance'
 #kind= 'correlation'
+
+Xs_tc, pheno_src = load_adhd200(atlas='aal')
+ys = pheno_src['DX'].values
+sex_src = pheno_src['Gender'].values.reshape(-1, 1)
+
+measure = ConnectivityMeasure(kind=kind, vectorize=True)
+Xs = measure.fit_transform(Xs_tc) 
+
+sites = pheno_src['Site'].values
+uni_sites = np.unique(sites)
+site_mat = np.zeros((pheno_src.shape[0], uni_sites.shape[0]))
+for i in range(uni_sites.shape[0]):
+    site_mat[np.where(sites==uni_sites[i]), i] = 1
+site_mat=np.concatenate((np.zeros((pheno_src.shape[0], 1)), site_mat), axis=1)
+
+
+
+
 Xcc, pheno = problem.get_data(atlas='cc200', kind=kind,return_pheno=True)
 Xaal = problem.get_data(atlas='aal', kind=kind)
 Xho = problem.get_data(atlas='ho', kind=kind)
-y = pheno['DX'].values
+yt = pheno['DX'].values
+
+site_ = np.zeros((y.shape[0], site_mat.shape[1]))
+site_[:,0]=1
 #clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
 
 
@@ -122,10 +143,18 @@ hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
 #print(get_hsic(X, iq))
 #print(get_hsic(X, hand))
 
-A = np.concatenate((sex, hand), axis=1)
+#A = np.concatenate((sex, hand), axis=1)
 #A = sex
+#A = np.concatenate((site_mat, site_))
+#A = np.concatenate((np.concatenate((site_mat, site_)), 
+#                    np.concatenate((sex_src, sex))), axis=1)
+A = np.concatenate((sex_src, sex))
 scaler = StandardScaler()
-X = scaler.fit_transform(Xcc)
+#X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
+#X = scaler.fit_transform(Xcc)
+X = np.concatenate((Xs, Xaal))
+#X = scaler.fit_transform(X)
+y = np.concatenate((ys, yt))
 #X=Xho
 acc = []
 auc = []
@@ -135,9 +164,9 @@ for i in range(10):
     pred = np.zeros(y.shape)
     dec = np.zeros(y.shape)
     for train, test in skf.split(X, y):
-        y_temp = np.zeros(y.shape)
-        y_temp[train] = y[train]
-        clf=DISVM()
+        y_temp = y.copy()
+        y_temp[test] = 0
+        clf=DISVM(kernel='linear', C=1)
         clf.fit(X, y_temp, A)
         pred[test]=clf.predict(X[test])
         dec[test]=clf.decision_function(X[test])
