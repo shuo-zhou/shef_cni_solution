@@ -9,8 +9,8 @@ import os
 import numpy as np
 import pandas as pd
 
-basedir = '/home/shuoz/data/adhd200/athena_TCs'
-
+#basedir = '/home/shuoz/data/adhd200/athena_TCs'
+basedir = 'D:/CNI19'
 sites=['NYU','NeuroIMAGE','KKI','OHSU','Peking_1','Peking_2','Peking_3',
        'Pittsburgh','WashU']
 
@@ -29,7 +29,7 @@ def load_adhd200(atlas='cc200'):
             else:
                 site_pheno.loc[idx, 'DX'] = 1
         pheno_list.append(site_pheno)
-        for sub_id in site_pheno['ScanDirID']:
+        for sub_id in site_pheno.iloc[:,0]:
             if len(str(sub_id))<7:
                 sub_id_str = '00%s'%sub_id
             else:
@@ -42,7 +42,7 @@ def load_adhd200(atlas='cc200'):
                     tc_data.append(sub_tc.iloc[:,2:].values)
                     break
     pheno = pd.concat(pheno_list, axis=0)
-    return pheno, tc_data
+    return tc_data, pheno
                 
             
         

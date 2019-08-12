@@ -19,6 +19,7 @@ from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from did import DISVM
+from get_adhd200_data import load_adhd200
 
 def sex_converter(sex_):
     sex = np.ones(sex_.shape)
@@ -38,6 +39,8 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     Ky = pairwise_kernels(Y, metric = kernel_y, **kwargs)
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
+Xsrc, pheno_src = load_adhd200()
+
 kind= 'tangent'
 #kind= 'covariance'
 #kind= 'correlation'
