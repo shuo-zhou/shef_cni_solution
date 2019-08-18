@@ -41,8 +41,8 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
 
-kind= 'tangent'
-#kind= 'covariance'
+#kind= 'tangent'
+kind= 'covariance'
 #kind= 'correlation'
 
 Xs_tc, pheno_src = load_adhd200(atlas='aal')
@@ -67,7 +67,7 @@ Xaal = problem.get_data(atlas='aal', kind=kind)
 Xho = problem.get_data(atlas='ho', kind=kind)
 yt = pheno['DX'].values
 
-site_ = np.zeros((y.shape[0], site_mat.shape[1]))
+site_ = np.zeros((yt.shape[0], site_mat.shape[1]))
 site_[:,0]=1
 #clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
 
@@ -151,29 +151,38 @@ hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
 A = np.concatenate((sex_src, sex))
 scaler = StandardScaler()
 #X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
-#X = scaler.fit_transform(Xcc)
-X = np.concatenate((Xs, Xaal))
+X = scaler.fit_transform(Xcc)
+#X = np.concatenate((Xs, Xaal))
 #X = scaler.fit_transform(X)
-y = np.concatenate((ys, yt))
+#y = np.concatenate((ys, yt))
+y=yt
 #X=Xho
 acc = []
 auc = []
 #from sklearn.model_selection import StratifiedKFold
+
+n_splits = 2
+
 for i in range(10):
-    skf = StratifiedKFold(n_splits = 2, shuffle = True, random_state = 144 * i)
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=144*i)
     pred = np.zeros(y.shape)
     dec = np.zeros(y.shape)
     for train, test in skf.split(X, y):
-        y_temp = y.copy()
-        y_temp[test] = 0
-        clf=DISVM(kernel='linear', C=1)
-        clf.fit(X, y_temp, A)
+# =============================================================================
+#         y_temp = y.copy()
+#         y_temp[test] = 0
+#         clf=DISVM(kernel='linear', C=1)
+#         clf.fit(X, y_temp, A)
+#         
+# =============================================================================
+        clf=make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
+        clf.fit(X[train], y[train])
         pred[test]=clf.predict(X[test])
         dec[test]=clf.decision_function(X[test])
     acc.append(accuracy_score(y, pred))
     auc.append(roc_auc_score(y, dec))
     print('Acc',acc[-1])
     print('AUC',auc[-1])
-
-        
+print('Mean Auc: ',np.mean(auc)) 
+print('Mean Acc: ',np.mean(acc))
     

@@ -12,7 +12,7 @@ from nilearn.connectome import ConnectivityMeasure
 from sklearn.preprocessing import FunctionTransformer
 
 #base_dir = 'D:/CNI19'
-base_dir = '/home/shuoz/data/CNI19'
+basedir = '/home/shuoz/data/CNI19'
 
 #train_path = 'D:/CNI19/2019_CNI_TrainingRelease-master'
 #valid_path = 'D:/CNI19/2019_CNI_ValidationRelease-master'
@@ -27,14 +27,12 @@ def _load_fmri(sub_ids, path, atlas='cc200'):
                      for sub_id in sub_ids]
 
 
-def _load_data(partition='Training', atlas='cc200'):
-    path = os.path.join(base_dir, '2019_CNI_%sRelease-master'%partition)
-    
-    pheno_path = os.path.join(path, 'SupportingInfo/phenotypic_%s.csv'%partition.lower())
+def _load_data(partition='Training', atlas='cc200'):    
+    pheno_path = os.path.join(basedir, 'SupportingInfo/phenotypic_%s.csv'%partition.lower())
     
     pheno_df = pd.read_csv(pheno_path)
     
-    data = _load_fmri(pheno_df['Subj'], os.path.join(path, partition), atlas=atlas)
+    data = _load_fmri(pheno_df['Subj'], os.path.join(basedir, partition), atlas=atlas)
     
     pheno_df_ = pheno_df.copy()
     
@@ -47,9 +45,9 @@ def _load_data(partition='Training', atlas='cc200'):
     return data, pheno_df_
 
 def get_data(kind='tangent', atlas='cc200', return_pheno=False):
-    pheno_path = os.path.join(base_dir, 'pheno.csv')
+    pheno_path = os.path.join(basedir, 'pheno.csv')
     
-    data_path = os.path.join(base_dir, 'X_%s_%s.npy'%(atlas, kind))
+    data_path = os.path.join(basedir, 'X_%s_%s.npy'%(atlas, kind))
     
     if os.path.exists(data_path):
         X = np.load(data_path)
