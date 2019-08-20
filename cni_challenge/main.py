@@ -19,7 +19,7 @@ from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from nilearn.connectome import ConnectivityMeasure
-from did import DISVM
+from TPy.did import DISVM
 from get_adhd200_data import load_adhd200
 
 def sex_converter(sex_):
