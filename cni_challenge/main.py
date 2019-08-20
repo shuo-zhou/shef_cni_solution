@@ -41,38 +41,37 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
 
-#kind= 'tangent'
-kind= 'covariance'
+kind= 'tangent'
+#kind= 'covariance'
 #kind= 'correlation'
 
-Xs_tc, pheno_src = load_adhd200(atlas='aal')
-ys = pheno_src['DX'].values
-sex_src = pheno_src['Gender'].values.reshape(-1, 1)
+# =============================================================================
+# Xs_tc, pheno_src = load_adhd200(atlas='aal')
+# ys = pheno_src['DX'].values
+# sex_src = pheno_src['Gender'].values.reshape(-1, 1)
 
-measure = ConnectivityMeasure(kind=kind, vectorize=True)
-Xs = measure.fit_transform(Xs_tc) 
+# measure = ConnectivityMeasure(kind=kind, vectorize=True)
+# Xs = measure.fit_transform(Xs_tc) 
+# 
+# sites = pheno_src['Site'].values
+# uni_sites = np.unique(sites)
+# site_mat = np.zeros((pheno_src.shape[0], uni_sites.shape[0]))
+# for i in range(uni_sites.shape[0]):
+#     site_mat[np.where(sites==uni_sites[i]), i] = 1
+# site_mat=np.concatenate((np.zeros((pheno_src.shape[0], 1)), site_mat), axis=1)
+# =============================================================================
 
-sites = pheno_src['Site'].values
-uni_sites = np.unique(sites)
-site_mat = np.zeros((pheno_src.shape[0], uni_sites.shape[0]))
-for i in range(uni_sites.shape[0]):
-    site_mat[np.where(sites==uni_sites[i]), i] = 1
-site_mat=np.concatenate((np.zeros((pheno_src.shape[0], 1)), site_mat), axis=1)
-
-
+#site_ = np.zeros((yt.shape[0], site_mat.shape[1]))
+#site_[:,0]=1
 
 
 Xcc, pheno = problem.get_data(atlas='cc200', kind=kind,return_pheno=True)
-Xaal = problem.get_data(atlas='aal', kind=kind)
+Xaal = problem.get_data(atlas='cc200', kind=kind)
 Xho = problem.get_data(atlas='ho', kind=kind)
 yt = pheno['DX'].values
 
-site_ = np.zeros((yt.shape[0], site_mat.shape[1]))
-site_[:,0]=1
+
 #clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
-
-
-clf = make_pipeline(StandardScaler(), SVC(kernel='linear'))
 
 
 #results = cross_validate(clf, X, y, scoring=['roc_auc', 'accuracy'], cv=5,
@@ -143,15 +142,15 @@ hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
 #print(get_hsic(X, iq))
 #print(get_hsic(X, hand))
 
-#A = np.concatenate((sex, hand), axis=1)
-#A = sex
+A = np.concatenate((sex, hand), axis=1)
+#A = hand
 #A = np.concatenate((site_mat, site_))
 #A = np.concatenate((np.concatenate((site_mat, site_)), 
 #                    np.concatenate((sex_src, sex))), axis=1)
-A = np.concatenate((sex_src, sex))
-scaler = StandardScaler()
+#A = np.concatenate((sex_src, sex))
+scaler = StandardScaler(with_std=False)
 #X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
-X = scaler.fit_transform(Xcc)
+X = scaler.fit_transform(Xaal)
 #X = np.concatenate((Xs, Xaal))
 #X = scaler.fit_transform(X)
 #y = np.concatenate((ys, yt))
@@ -161,7 +160,7 @@ acc = []
 auc = []
 #from sklearn.model_selection import StratifiedKFold
 
-n_splits = 2
+n_splits=2
 
 for i in range(10):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=144*i)
@@ -169,20 +168,21 @@ for i in range(10):
     dec = np.zeros(y.shape)
     for train, test in skf.split(X, y):
 # =============================================================================
-#         y_temp = y.copy()
-#         y_temp[test] = 0
-#         clf=DISVM(kernel='linear', C=1)
-#         clf.fit(X, y_temp, A)
-#         
+        y_temp = y.copy()
+        y_temp[test] = 0
+        clf=DISVM(kernel='rbf', gamma=0.1, C=1)
+        clf.fit(X, y_temp, A)
 # =============================================================================
-        clf=make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
-        clf.fit(X[train], y[train])
+#        clf=make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
+#        clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, solver='lbfgs', max_iter=1000))
+#        clf.fit(X[train], y[train])
+        
         pred[test]=clf.predict(X[test])
         dec[test]=clf.decision_function(X[test])
     acc.append(accuracy_score(y, pred))
     auc.append(roc_auc_score(y, dec))
     print('Acc',acc[-1])
     print('AUC',auc[-1])
-print('Mean Auc: ',np.mean(auc)) 
-print('Mean Acc: ',np.mean(acc))
+print('Mean Auc: ',np.mean(auc), 'AUC std: ',np.std(auc)) 
+print('Mean Acc: ',np.mean(acc), 'Acc std: ',np.std(acc))
     
