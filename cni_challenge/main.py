@@ -66,7 +66,7 @@ kind= 'tangent'
 
 
 Xcc, pheno = problem.get_data(atlas='cc200', kind=kind,return_pheno=True)
-Xaal = problem.get_data(atlas='cc200', kind=kind)
+Xaal = problem.get_data(atlas='aal', kind=kind)
 Xho = problem.get_data(atlas='ho', kind=kind)
 yt = pheno['DX'].values
 
@@ -150,7 +150,7 @@ A = np.concatenate((sex, hand), axis=1)
 #A = np.concatenate((sex_src, sex))
 scaler = StandardScaler(with_std=False)
 #X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
-X = scaler.fit_transform(Xaal)
+X = Xcc#scaler.fit_transform(Xaal)
 #X = np.concatenate((Xs, Xaal))
 #X = scaler.fit_transform(X)
 #y = np.concatenate((ys, yt))
@@ -170,8 +170,13 @@ for i in range(10):
 # =============================================================================
         y_temp = y.copy()
         y_temp[test] = 0
-        clf=DISVM(kernel='rbf', gamma=0.1, C=1)
-        clf.fit(X, y_temp, A)
+        temp = np.zeros(y.shape)
+        temp[train] = 1
+        temp[test] = -1
+        temp = temp.reshape(-1,1)
+        temp_A = np.concatenate((temp, A), axis=1)
+        clf=DISVM(kernel='linear', lambda_ = 0.001, C=1)
+        clf.fit(X, y_temp, temp)
 # =============================================================================
 #        clf=make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
 #        clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, solver='lbfgs', max_iter=1000))
