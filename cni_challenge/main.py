@@ -28,7 +28,7 @@ def sex_converter(sex_):
         if sex_.loc[i] == 'M':
             sex[i] = 1
         else:
-            sex[i] = 0
+            sex[i] = -1
             
     return sex
 
@@ -41,8 +41,8 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
     
 
-#kind= 'tangent'
-kind= 'covariance'
+kind= 'tangent'
+#kind= 'covariance'
 #kind= 'correlation'
 
 # =============================================================================
@@ -148,9 +148,9 @@ A = np.concatenate((sex, hand), axis=1)
 #A = np.concatenate((np.concatenate((site_mat, site_)), 
 #                    np.concatenate((sex_src, sex))), axis=1)
 #A = np.concatenate((sex_src, sex))
-scaler = StandardScaler(with_std=False)
+scaler = StandardScaler()
 #X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
-X = scaler.fit_transform(Xho)
+X = scaler.fit_transform(Xcc)
 #X = np.concatenate((Xs, Xaal))
 #X = scaler.fit_transform(X)
 #y = np.concatenate((ys, yt))

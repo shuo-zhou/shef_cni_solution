@@ -62,7 +62,7 @@ class DISVM(BaseEstimator, TransformerMixin):
             W = np.eye(n)
             
         P = np.zeros((2*n, 2*n))
-        P[:n, :n] = K + self.lambda_ * multi_dot([K, H, Ka, H, K])
+        P[:n, :n] = K + self.lambda_ * 1/np.square(n-1) * multi_dot([K, H, Ka, H, K])
         
         q = np.zeros((2 * n, 1))
         q[n:, :] = self.C
