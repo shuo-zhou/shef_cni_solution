@@ -57,7 +57,14 @@ def get_data(kind='tangent', atlas='cc200', return_pheno=False):
         X_valid, pheno_valid = get_valid_data(atlas=atlas)
         X_all = X_train + X_valid
         measure = ConnectivityMeasure(kind=kind, vectorize=True)
-        X = measure.fit_transform(X_all) 
+        X_connectome = measure.fit_transform(X_all)
+        n_roi = X_all[0].shape[1]
+        n_sub = len(X_all)
+        X_ = np.zeros((n_sub, n_roi*2))
+        for i in range(n_sub):
+            X_[i,:n_roi] = np.mean(X_all[i], axis=0)
+            X_[i,n_roi:] = np.std(X_all[i], axis=0)
+        X = np.concatenate((X_, X_connectome), axis=1)
         np.save(data_path, X)
         if not os.path.exists(pheno_path):
             pheno = pd.concat([pheno_train, pheno_valid])
