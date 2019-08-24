@@ -61,17 +61,18 @@ class DISVM(BaseEstimator, TransformerMixin):
         if W is None:
             W = np.eye(n)
             
-        P = np.zeros((2*n, 2*n))
+        P = np.zeros((2*n+1, 2*n+1))
         P[:n, :n] = K + self.lambda_ * 1/np.square(n-1) * multi_dot([K, H, Ka, H, K])
         
-        q = np.zeros((2 * n, 1))
+        q = np.zeros((2*n+1, 1))
         q[n:, :] = self.C
         
-        y = y.reshape((n, 1))
-        G = np.zeros((2*n, 2*n))
-        G[:n, :n] = -np.multiply(K, y)
-        G[:n, n:] = -np.eye(n)
-        G[n:, n:] = -np.eye(n)
+#        y = y.reshape((n, 1))
+        G = np.zeros((2*n, 2*n+1))
+        G[:n, :n] = -np.multiply(K, y.reshape((n, 1)))
+        G[:n, n] = -y
+        G[:n, n+1:] = -np.eye(n)
+        G[n:, n+1:] = -np.eye(n)
         
         h = np.zeros((2*n, 1))
         h[:n, :] = -1
@@ -87,6 +88,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         
         self.coef_ = sol['x'][:n]
         self.coef_ = np.array(self.coef_).reshape(n)
+        self.intercept_ = sol['x'][n]
         
 # =============================================================================
 #         beta = cvx.Variable(shape = (2 * n, 1))
@@ -115,29 +117,27 @@ class DISVM(BaseEstimator, TransformerMixin):
 
         X_fit = self.X
         K = get_kernel(X, X_fit, kernel = self.kernel, **self.kwargs)
-        return np.dot(K, self.coef_)
+        return np.dot(K, self.coef_)+self.intercept_
     
     def predict(self, X):
         '''
         Parameters:
             X: array-like, shape (n_samples, n_feautres)
         Return:
-            tranformed data
+            predicted labels, array-like, shape (n_samples)
         '''
-        check_is_fitted(self, 'X')
-
-        X_fit = self.X
-        K = get_kernel(X, X_fit, kernel = self.kernel, **self.kwargs)
-        return np.sign(np.dot(K, self.coef_))
+        
+        return np.sign(self.decision_function(X))
 
 
     def fit_predict(self, X, y, A, W = None):
         '''
         Parameters:
-            Xs: Source domain data, array-like, shape (n_samples, n_feautres)
-            Xt: Target domain data, array-like, shape (n_samples, n_feautres)
+            X: Input data, array-like, shape (n_samples, n_feautres)
+            y: Label, array-like, shape (n_samples, )
+            A: Domain auxiliary features, array-like, shape (n_samples, n_feautres)
         Return:
-            tranformed Xs_transformed, Xt_transformed
+            predicted labels, array-like, shape (n_samples)
         '''
         self.fit(X, A, y, W)
         y_pred = self.predict(X)
