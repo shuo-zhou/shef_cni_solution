@@ -3,14 +3,14 @@
 """
 Created on Mon Feb 25 11:15:26 2019
 
+@author: shuoz
 """
 import numpy as np
 from scipy.linalg import eig
-from numpy.linalg import multi_dot, inv, solve
+from numpy.linalg import multi_dot, solve
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils.validation import check_is_fitted
-from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import kneighbors_graph
 #import cvxpy as cvx
 #from cvxpy.error import SolverError
@@ -30,7 +30,7 @@ def get_kernel(X, Y=None, kernel = 'linear', **kwargs):
                             filter_params = True, **kwargs)
 
 class DISVM(BaseEstimator, TransformerMixin):
-    def __init__(self, C=1, kernel='linear', lambda_=1, **kwargs):
+    def __init__(self, C= 1, kernel='linear', lambda_=1, **kwargs):
         '''
         Init function
         Parameters
@@ -45,7 +45,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         self.lambda_ = lambda_
         self.C = C
 
-    def fit(self, X, y, A, train_index, W=None):
+    def fit(self, X, y, A, W=None):
         '''
         solve min_x x^TPx + q^Tx, s.t. Gx<=h
         Parameters:
@@ -54,71 +54,40 @@ class DISVM(BaseEstimator, TransformerMixin):
             A: Domain auxiliary features, array-like, shape (n_samples, n_feautres)
         '''
         n = X.shape[0]
-        X_train = X[train_index]
-        n_train = X_train.shape[0]
         Ka = np.dot(A, A.T)
         I = np.eye(n)
         H = I - 1. / n * np.ones((n, n))
         K = get_kernel(X, kernel = self.kernel, **self.kwargs)
-        K_train = get_kernel(X_train, X, kernel=self.kernel, **self.kwargs)
         K[np.isnan(K)] = 0
         if W is None:
             W = np.eye(n)
-
-        # self.scaler = StandardScaler()
-        P = np.zeros((n+n_train+1, n+n_train+1))
+            
+        P = np.zeros((2*n, 2*n))
         P[:n, :n] = K + self.lambda_ * multi_dot([K, H, Ka, H, K])
-        # P[n+1, n+1] = 1
         
-        q = np.zeros((n+n_train+1, 1))
-        q[n+1:, :] = self.C
+        q = np.zeros((2 * n, 1))
+        q[n:, :] = self.C
         
-#        y = y.reshape((n, 1))
-        G = np.zeros((2*n_train, n+n_train+1))
-        G[:n_train, :n] = -np.multiply(K_train, y.reshape((n_train, 1)))
-        G[:n_train, n] = -y
-        G[:n_train, n+1:] = -np.eye(n_train)
-        G[n_train:, n+1:] = -np.eye(n_train)
+        y = y.reshape((n, 1))
+        G = np.zeros((2*n, 2*n))
+        G[:n, :n] = -np.multiply(K, y)
+        G[:n, n:] = -np.eye(n)
+        G[n:, n:] = -np.eye(n)
         
-        h = np.zeros((2*n_train, 1))
-        h[:n_train, :] = -1
-
-        # dual         
-        # P = multi_dot([np.multiply(K, y).T, inv(K + self.lambda_ * multi_dot([K, H, Ka, H, K])), np.multiply(K, y)])
-        # q = -1 * np.ones((n, 1))
-        # G = np.zeros((2*n, n))
-        # G[:n, :] = -np.eye(n)
-        # G[n:, :] = np.eye(n)
-        
-        # h = np.zeros((2*n, 1))
-        # h[n:, :] = self.C
+        h = np.zeros((2*n, 1))
+        h[:n, :] = -1
         
         # convert numpy matrix to cvxopt matrix
         P = matrix(P)
         q = matrix(q)
         G = matrix(G)
         h = matrix(h)
-
-        # dual only
-        # A = matrix(y.reshape(1, -1).astype('double'))
-        # b = matrix(np.zeros(1).astype('double'))
         
         solvers.options['show_progress'] = False
-        # sol = solvers.qp(P, q, G, h, A, b)
-        sol = solvers.qp(P, q, G, h)
-
-        # solve dual 
-        # self.alpha = np.array(sol['x']).reshape(n)
-        # if self.kernel == 'linear':
-        #     self.coef_ = np.dot((y * self.alpha), X)
-        # self.support_idx = (self.alpha > 1e-4).flatten()
-        # self.support_ = X[self.support_idx]
-        # self.intercept_ = y[self.support_idx] - np.dot(K[self.support_idx], (y * self.alpha))
-
-        # solve primal
+        sol = solvers.qp(P,q,G,h)
+        
         self.coef_ = sol['x'][:n]
         self.coef_ = np.array(self.coef_).reshape(n)
-        self.intercept_ = sol['x'][n]
         
 # =============================================================================
 #         beta = cvx.Variable(shape = (2 * n, 1))
@@ -139,44 +108,38 @@ class DISVM(BaseEstimator, TransformerMixin):
         
         self.beta = sol['x']
         self.X = X
-        self.y = y
         
         return self
 
     def decision_function(self, X):
         check_is_fitted(self, 'X')
-        check_is_fitted(self, 'y')
 
         X_fit = self.X
-
-        # primal
-        K = get_kernel(X, X_fit, kernel=self.kernel, **self.kwargs)
-        return np.dot(K, self.coef_)+self.intercept_
-
-        # dual
-        # K = get_kernel(X, X_fit, kernel = self.kernel, **self.kwargs)
-        # return np.dot(K, (self.y * self.alpha))+self.intercept_[0]
+        K = get_kernel(X, X_fit, kernel = self.kernel, **self.kwargs)
+        return np.dot(K, self.coef_)
     
     def predict(self, X):
         '''
         Parameters:
             X: array-like, shape (n_samples, n_feautres)
         Return:
-            predicted labels, array-like, shape (n_samples)
+            tranformed data
         '''
-        
-        return np.sign(self.decision_function(X))
+        check_is_fitted(self, 'X')
+
+        X_fit = self.X
+        K = get_kernel(X, X_fit, kernel = self.kernel, **self.kwargs)
+        return np.sign(np.dot(K, self.coef_))
 
 
-    def fit_predict(self, X, y, A, train_index, W = None):
+    def fit_predict(self, X, y, A, W = None):
         '''
         Parameters:
-            X: Input data, array-like, shape (n_samples, n_feautres)
-            y: Label, array-like, shape (n_samples, )
-            A: Domain auxiliary features, array-like, shape (n_samples, n_feautres)
+            Xs: Source domain data, array-like, shape (n_samples, n_feautres)
+            Xt: Target domain data, array-like, shape (n_samples, n_feautres)
         Return:
-            predicted labels, array-like, shape (n_samples)
+            tranformed Xs_transformed, Xt_transformed
         '''
-        self.fit(X, y, A, train_index, W)
+        self.fit(X, A, y, W)
         y_pred = self.predict(X)
         return y_pred
