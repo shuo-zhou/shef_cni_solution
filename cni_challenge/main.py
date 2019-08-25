@@ -175,7 +175,7 @@ for i in range(10):
 #        temp[test] = -1
 #        temp = temp.reshape(-1,1)
 #        temp_A = np.concatenate((temp, A), axis=1)
-        clf=DISVM(kernel='linear', C=1)
+        clf=DISVM(kernel='linear', C=1, lambda_=1000)
 #         clf=DISVM(kernel='rbf', gamma=0.01, C=1)
         clf.fit(X, y[train], A, train)
 # =============================================================================
