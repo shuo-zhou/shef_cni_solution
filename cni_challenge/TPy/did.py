@@ -10,6 +10,7 @@ from numpy.linalg import multi_dot, solve
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils.validation import check_is_fitted
+from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import kneighbors_graph
 #import cvxpy as cvx
 #from cvxpy.error import SolverError
@@ -29,7 +30,7 @@ def get_kernel(X, Y=None, kernel = 'linear', **kwargs):
                             filter_params = True, **kwargs)
 
 class DISVM(BaseEstimator, TransformerMixin):
-    def __init__(self, C= 1, kernel='linear', lambda_=1, **kwargs):
+    def __init__(self, C=1, kernel='linear', lambda_=1, **kwargs):
         '''
         Init function
         Parameters
@@ -44,7 +45,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         self.lambda_ = lambda_
         self.C = C
 
-    def fit(self, X, y, A, W=None):
+    def fit(self, X, y, A, train_index, W=None):
         '''
         solve min_x x^TPx + q^Tx, s.t. Gx<=h
         Parameters:
@@ -53,29 +54,34 @@ class DISVM(BaseEstimator, TransformerMixin):
             A: Domain auxiliary features, array-like, shape (n_samples, n_feautres)
         '''
         n = X.shape[0]
+        X_train = X[train_index]
+        n_train = X_train.shape[0]
         Ka = np.dot(A, A.T)
         I = np.eye(n)
         H = I - 1. / n * np.ones((n, n))
         K = get_kernel(X, kernel = self.kernel, **self.kwargs)
+        K_train = get_kernel(X_train, X, kernel=self.kernel, **self.kwargs)
         K[np.isnan(K)] = 0
         if W is None:
             W = np.eye(n)
-            
-        P = np.zeros((2*n+1, 2*n+1))
-        P[:n, :n] = K + self.lambda_ * 1/np.square(n-1) * multi_dot([K, H, Ka, H, K])
+
+        # self.scaler = StandardScaler()
+        P = np.zeros((n+n_train+1, n+n_train+1))
+        P[:n, :n] = K + self.lambda_ * multi_dot([K, H, Ka, H, K])
+        # P[n+1, n+1] = 1
         
-        q = np.zeros((2*n+1, 1))
-        q[n:, :] = self.C
+        q = np.zeros((n+n_train+1, 1))
+        q[n+1:, :] = self.C
         
 #        y = y.reshape((n, 1))
-        G = np.zeros((2*n, 2*n+1))
-        G[:n, :n] = -np.multiply(K, y.reshape((n, 1)))
-        G[:n, n] = -y
-        G[:n, n+1:] = -np.eye(n)
-        G[n:, n+1:] = -np.eye(n)
+        G = np.zeros((2*n_train, n+n_train+1))
+        G[:n_train, :n] = -np.multiply(K_train, y.reshape((n_train, 1)))
+        G[:n_train, n] = -y
+        G[:n_train, n+1:] = -np.eye(n_train)
+        G[n_train:, n+1:] = -np.eye(n_train)
         
-        h = np.zeros((2*n, 1))
-        h[:n, :] = -1
+        h = np.zeros((2*n_train, 1))
+        h[:n_train, :] = -1
         
         # convert numpy matrix to cvxopt matrix
         P = matrix(P)
@@ -116,7 +122,8 @@ class DISVM(BaseEstimator, TransformerMixin):
         check_is_fitted(self, 'X')
 
         X_fit = self.X
-        K = get_kernel(X, X_fit, kernel = self.kernel, **self.kwargs)
+        K = get_kernel(X, X_fit, kernel=self.kernel, **self.kwargs)
+        # K = self.scaler.transform(K)
         return np.dot(K, self.coef_)+self.intercept_
     
     def predict(self, X):
