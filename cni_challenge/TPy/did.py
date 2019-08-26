@@ -88,8 +88,8 @@ class DISVM(BaseEstimator, TransformerMixin):
         h = matrix(h)
 
         # dual only
-        A = matrix(y.reshape(1, -1).astype('double'))
-        b = matrix(np.zeros(1).astype('double'))
+        A = matrix(y.reshape(1, -1).astype('float64'))
+        b = matrix(np.zeros(1).astype('float64'))
         
         solvers.options['show_progress'] = False
         sol = solvers.qp(P, q, G, h, A, b)
@@ -98,10 +98,11 @@ class DISVM(BaseEstimator, TransformerMixin):
         # solve dual 
         self.alpha = np.array(sol['x']).reshape(n_train)
         self.coef_ = multi_dot([inv(Q_), J.T, Y, self.alpha])
-        self.support_ = (self.alpha > 1e-4).flatten()
+        self.support_ = np.where((self.alpha > 0) & (self.alpha < self.C))
         self.support_vectors_ = X_train[self.support_]
+        self.n_support_ = self.support_vectors_.shape[0]
         self.intercept_ = np.mean(y[self.support_] - y[self.support_] *
-                                  np.dot(K_train[self.support_], self.coef_))
+                                  np.dot(K_train[self.support_], self.coef_))/self.n_support_
 
 # =============================================================================
 #         beta = cvx.Variable(shape = (2 * n, 1))
@@ -128,16 +129,10 @@ class DISVM(BaseEstimator, TransformerMixin):
     def decision_function(self, X):
         check_is_fitted(self, 'X')
         check_is_fitted(self, 'y')
-
         X_fit = self.X
-
-        # primal
         K = get_kernel(X, X_fit, kernel=self.kernel, **self.kwargs)
-        return np.dot(K, self.coef_)#+self.intercept_
+        return np.dot(K, self.coef_)+self.intercept_
 
-        # dual
-        # K = get_kernel(X, X_fit, kernel = self.kernel, **self.kwargs)
-        # return np.dot(K, (self.y * self.alpha))+self.intercept_[0]
     
     def predict(self, X):
         '''
