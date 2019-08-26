@@ -9,7 +9,6 @@ import numpy as np
 from numpy.linalg import multi_dot
 import pandas as pd
 import problem
-#from nilearn.connectome import ConnectivityMeasure
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
@@ -29,7 +28,6 @@ def sex_converter(sex_):
             sex[i] = 1
         else:
             sex[i] = -1
-            
     return sex
 
 def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
@@ -39,9 +37,9 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     Kx = pairwise_kernels(X, metric = kernel_x, **kwargs)
     Ky = pairwise_kernels(Y, metric = kernel_y, **kwargs)
     return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
-    
 
-kind= 'tangent'
+
+kind = 'tangent'
 #kind= 'covariance'
 #kind= 'correlation'
 
@@ -64,12 +62,10 @@ kind= 'tangent'
 #site_ = np.zeros((yt.shape[0], site_mat.shape[1]))
 #site_[:,0]=1
 
-
 Xcc, pheno = problem.get_data(atlas='cc200', kind=kind,return_pheno=True)
 Xaal = problem.get_data(atlas='aal', kind=kind)
 Xho = problem.get_data(atlas='ho', kind=kind)
 yt = pheno['DX'].values
-
 
 #clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
 
@@ -117,8 +113,7 @@ skf = StratifiedKFold(n_splits = 5, shuffle = True, random_state = 144)
 #     pred[test] = clf_cc.predict(Xcc[test])
 #     prob[test] = clf_cc.predict_proba(Xcc[test])[:,0]
 # =============================================================================
-    
-    
+
 #print('Acc',accuracy_score(y, pred))
 #print('AUC',roc_auc_score(y, prob))
 
@@ -133,9 +128,6 @@ sex = sex_converter(sex_).reshape(-1, 1)
 age = scaler.fit_transform(age_.values.reshape(-1, 1))
 iq = scaler.fit_transform(iq_.values.reshape(-1, 1))
 hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
-
-
-
 
 #print(get_hsic(X, sex))
 #print(get_hsic(X, age))
@@ -160,7 +152,7 @@ acc = []
 auc = []
 #from sklearn.model_selection import StratifiedKFold
 
-n_splits=2
+n_splits = 2
 
 for i in range(10):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=144*i)
@@ -183,12 +175,11 @@ for i in range(10):
         # clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, solver='lbfgs', max_iter=1000))
         # clf.fit(X[train], y[train])
         
-        pred[test]=clf.predict(X[test])
-        dec[test]=clf.decision_function(X[test])
+        pred[test] = clf.predict(X[test])
+        dec[test] = clf.decision_function(X[test])
     acc.append(accuracy_score(y, pred))
     auc.append(roc_auc_score(y, dec))
-    print('Acc',acc[-1])
-    print('AUC',auc[-1])
-print('Mean Auc: ',np.mean(auc), 'AUC std: ',np.std(auc)) 
-print('Mean Acc: ',np.mean(acc), 'Acc std: ',np.std(acc))
-    
+    print('Acc', acc[-1])
+    print('AUC', auc[-1])
+print('Mean Auc: ', np.mean(auc), 'AUC std: ', np.std(auc))
+print('Mean Acc: ', np.mean(acc), 'Acc std: ', np.std(acc))
