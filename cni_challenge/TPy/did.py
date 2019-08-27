@@ -6,53 +6,63 @@ Created on Mon Feb 25 11:15:26 2019
 """
 import numpy as np
 from scipy.linalg import eig
+import scipy.sparse as sparse
 from numpy.linalg import multi_dot, inv, solve
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils.validation import check_is_fitted
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import kneighbors_graph
-#import cvxpy as cvx
-#from cvxpy.error import SolverError
+# import cvxpy as cvx
+# from cvxpy.error import SolverError
 from cvxopt import matrix, solvers
+import osqp
 
-def get_kernel(X, Y=None, kernel = 'linear', **kwargs):
-    '''
+
+def get_kernel(X, Y=None, kernel='linear', **kwargs):
+    """
     Generate kernel matrix
     Parameters:
         X: X matrix (n1,d)
         Y: Y matrix (n2,d)
-    Return: 
+        kernel: 'linear'(default) | 'rbf' | 'poly'
+    Return:
         Kernel matrix
-    '''
 
-    return pairwise_kernels(X, Y=Y, metric = kernel, 
-                            filter_params = True, **kwargs)
+    """
+
+    return pairwise_kernels(X, Y=Y, metric=kernel,
+                            filter_params=True, **kwargs)
+
 
 class DISVM(BaseEstimator, TransformerMixin):
-    def __init__(self, C=1, kernel='linear', lambda_=1, **kwargs):
-        '''
+    def __init__(self, C=1, kernel='linear', lambda_=1, solver='cvxopt', **kwargs):
+        """
         Init function
         Parameters
             n_components: n_componentss after tca (n_components <= d)
-            kernel_type: 'rbf' | 'linear' | 'poly' (default is 'linear')
+            kernel: 'rbf' | 'linear' | 'poly' (default is 'linear')
             kernelparam: kernel param
             lambda_: regulization param
             gamma: label dependence param
-        '''
+            solver: cvxopt (default), osqp
+        """
         self.kwargs = kwargs
         self.kernel = kernel
         self.lambda_ = lambda_
         self.C = C
+        self.solver = solver
 
     def fit(self, X_train, X_test, y, A_train, A_test, W=None):
-        '''
-        solve min_x x^TPx + q^Tx, s.t. Gx<=h
+        """
+        solve min_x x^TPx + q^Tx, s.t. Gx<=h, Ax=b
         Parameters:
-            X: Input data, array-like, shape (n_samples, n_feautres)
+            X_train: Training data, array-like, shape (n_train_samples, n_feautres)
+            X_test: Testing data, array-like, shape (n_test_samples, n_feautres)
             y: Label, array-like, shape (n_samples, )
-            A: Domain auxiliary features, array-like, shape (n_samples, n_feautres)
-        '''
+            A_train: Domain covariate matrix for training data, array-like, shape (n_train_samples, n_covariates)
+            A_test: Domain covariate matrix for testing data, array-like, shape (n_test_samples, n_covariates)
+        """
 
         n_train = X_train.shape[0]
         X = np.concatenate((X_train, X_test))
@@ -74,29 +84,42 @@ class DISVM(BaseEstimator, TransformerMixin):
         Q_ = np.eye(n) + self.lambda_ * multi_dot([H, Ka, H, K])
         Q = multi_dot([Y, J, K, inv(Q_), J.T, Y])
         q = -1 * np.ones((n_train, 1))
-        G = np.zeros((2*n_train, n_train))
-        G[:n_train, :] = -1 * np.eye(n_train)
-        G[n_train:, :] = np.eye(n_train)
-        
-        h = np.zeros((2*n_train, 1))
-        h[n_train:, :] = self.C
-        
-        # convert numpy matrix to cvxopt matrix
-        P = matrix(Q)
-        q = matrix(q)
-        G = matrix(G)
-        h = matrix(h)
 
-        # dual only
-        A = matrix(y.reshape(1, -1).astype('float64'))
-        b = matrix(np.zeros(1).astype('float64'))
-        
-        solvers.options['show_progress'] = False
-        sol = solvers.qp(P, q, G, h, A, b)
-        # sol = solvers.qp(P, q, G, h)
+        if self.solver == 'cvxopt':
+            G = np.zeros((2 * n_train, n_train))
+            G[:n_train, :] = -1 * np.eye(n_train)
+            G[n_train:, :] = np.eye(n_train)
+            h = np.zeros((2 * n_train, 1))
+            h[n_train:, :] = self.C
 
-        # solve dual 
-        self.alpha = np.array(sol['x']).reshape(n_train)
+            # convert numpy matrix to cvxopt matrix
+            P = matrix(Q)
+            q = matrix(q)
+            G = matrix(G)
+            h = matrix(h)
+
+            # dual only
+            A = matrix(y.reshape(1, -1).astype('float64'))
+            b = matrix(np.zeros(1).astype('float64'))
+
+            solvers.options['show_progress'] = False
+            sol = solvers.qp(P, q, G, h, A, b)
+
+            self.alpha = np.array(sol['x']).reshape(n_train)
+
+        elif self.solver == 'osqp':
+            P = sparse.csr_matrix((n_train, n_train))
+            P[:n_train, :n_train] = Q[:n_train, :n_train]
+            G = sparse.vstack([sparse.eye(n_train), y.reshape(1, -1)]).tocsc()
+            l = np.zeros((n_train+1, 1))
+            u = np.zeros(l.shape)
+            u[:n_train, 0] = self.C
+
+            prob = osqp.OSQP()
+            prob.setup(P, q, G, l, u)
+            res = prob.solve()
+            self.alpha = res.x
+
         self.coef_ = multi_dot([inv(Q_), J.T, Y, self.alpha])
         self.support_ = np.where((self.alpha > 0) & (self.alpha < self.C))
         self.support_vectors_ = X_train[self.support_]
@@ -133,27 +156,25 @@ class DISVM(BaseEstimator, TransformerMixin):
         K = get_kernel(X, X_fit, kernel=self.kernel, **self.kwargs)
         return np.dot(K, self.coef_)+self.intercept_
 
-    
     def predict(self, X):
-        '''
+        """
         Parameters:
             X: array-like, shape (n_samples, n_feautres)
         Return:
             predicted labels, array-like, shape (n_samples)
-        '''
+        """
         
         return np.sign(self.decision_function(X))
 
-
     def fit_predict(self, X, y, A, train_index, W = None):
-        '''
+        """
         Parameters:
             X: Input data, array-like, shape (n_samples, n_feautres)
             y: Label, array-like, shape (n_samples, )
             A: Domain auxiliary features, array-like, shape (n_samples, n_feautres)
         Return:
             predicted labels, array-like, shape (n_samples)
-        '''
+        """
         self.fit(X, y, A, train_index, W)
         y_pred = self.predict(X)
         return y_pred
