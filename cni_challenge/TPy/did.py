@@ -4,6 +4,8 @@
 Created on Mon Feb 25 11:15:26 2019
 
 """
+import sys
+import warnings
 import numpy as np
 from scipy.linalg import eig
 import scipy.sparse as sparse
@@ -59,7 +61,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         Parameters:
             X_train: Training data, array-like, shape (n_train_samples, n_feautres)
             X_test: Testing data, array-like, shape (n_test_samples, n_feautres)
-            y: Label, array-like, shape (n_samples, )
+            y: Label, array-like, shape (n_train_samples, )
             A_train: Domain covariate matrix for training data, array-like, shape (n_train_samples, n_covariates)
             A_test: Domain covariate matrix for testing data, array-like, shape (n_test_samples, n_covariates)
         """
@@ -81,7 +83,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         Y = np.diag(y)
         J = np.zeros((n_train, n))
         J[:n_train, :n_train] = np.eye(n_train)
-        Q_ = np.eye(n) + self.lambda_ * multi_dot([H, Ka, H, K])
+        Q_ = np.eye(n) + self.lambda_/np.square(n-1) * multi_dot([H, Ka, H, K])
         Q = multi_dot([Y, J, K, inv(Q_), J.T, Y])
         q = -1 * np.ones((n_train, 1))
 
@@ -97,8 +99,6 @@ class DISVM(BaseEstimator, TransformerMixin):
             q = matrix(q)
             G = matrix(G)
             h = matrix(h)
-
-            # dual only
             A = matrix(y.reshape(1, -1).astype('float64'))
             b = matrix(np.zeros(1).astype('float64'))
 
@@ -108,7 +108,8 @@ class DISVM(BaseEstimator, TransformerMixin):
             self.alpha = np.array(sol['x']).reshape(n_train)
 
         elif self.solver == 'osqp':
-            P = sparse.csr_matrix((n_train, n_train))
+            warnings.simplefilter('ignore', sparse.SparseEfficiencyWarning)
+            P = sparse.csc_matrix((n_train, n_train))
             P[:n_train, :n_train] = Q[:n_train, :n_train]
             G = sparse.vstack([sparse.eye(n_train), y.reshape(1, -1)]).tocsc()
             l = np.zeros((n_train+1, 1))
@@ -119,6 +120,10 @@ class DISVM(BaseEstimator, TransformerMixin):
             prob.setup(P, q, G, l, u)
             res = prob.solve()
             self.alpha = res.x
+
+        else:
+            print('Invalid QP solver')
+            sys.exit()
 
         self.coef_ = multi_dot([inv(Q_), J.T, Y, self.alpha])
         self.support_ = np.where((self.alpha > 0) & (self.alpha < self.C))
@@ -150,10 +155,15 @@ class DISVM(BaseEstimator, TransformerMixin):
         return self
 
     def decision_function(self, X):
+        """
+        Parameters:
+            X: array-like, shape (n_samples, n_feautres)
+        Return:
+            prediction scores, array-like, shape (n_samples)
+        """
         check_is_fitted(self, 'X')
         check_is_fitted(self, 'y')
-        X_fit = self.X
-        K = get_kernel(X, X_fit, kernel=self.kernel, **self.kwargs)
+        K = get_kernel(X, self.X, kernel=self.kernel, **self.kwargs)
         return np.dot(K, self.coef_)+self.intercept_
 
     def predict(self, X):
@@ -166,15 +176,15 @@ class DISVM(BaseEstimator, TransformerMixin):
         
         return np.sign(self.decision_function(X))
 
-    def fit_predict(self, X, y, A, train_index, W = None):
+    def fit_predict(self, X_train, X_test, y, D_train, D_test, W = None):
         """
+        solve min_x x^TPx + q^Tx, s.t. Gx<=h, Ax=b
         Parameters:
-            X: Input data, array-like, shape (n_samples, n_feautres)
-            y: Label, array-like, shape (n_samples, )
-            A: Domain auxiliary features, array-like, shape (n_samples, n_feautres)
-        Return:
-            predicted labels, array-like, shape (n_samples)
+            X_train: Training data, array-like, shape (n_train_samples, n_feautres)
+            X_test: Testing data, array-like, shape (n_test_samples, n_feautres)
+            y: Label, array-like, shape (n_train_samples, )
+            D_train: Domain covariate matrix for training data, array-like, shape (n_train_samples, n_covariates)
+            D_test: Domain covariate matrix for testing data, array-like, shape (n_test_samples, n_covariates)
         """
-        self.fit(X, y, A, train_index, W)
-        y_pred = self.predict(X)
-        return y_pred
+        self.fit(X_train, X_test, y, D_train, D_test, W)
+        return self.predict(X_test)
