@@ -22,7 +22,7 @@ from TPy.did import DISVM
 from get_adhd200_data import load_adhd200
 
 
-def sex_converter(sex_):
+def sex2onehot(sex_):
     sex = np.ones(sex_.shape)
     for i in sex_.index.values:
         if sex_.loc[i] == 'M':
@@ -36,9 +36,9 @@ def get_hsic(X, Y, kernel_x='linear', kernel_y='linear', **kwargs):
     n = X.shape[0]
     I = np.eye(n)
     H = I - 1. / n * np.ones((n, n))
-    Kx = pairwise_kernels(X, metric = kernel_x, **kwargs)
-    Ky = pairwise_kernels(Y, metric = kernel_y, **kwargs)
-    return np.trace(multi_dot([Kx, H, Ky, H])) / (n*n)
+    Kx = pairwise_kernels(X, metric=kernel_x, **kwargs)
+    Ky = pairwise_kernels(Y, metric=kernel_y, **kwargs)
+    return 1/np.square(n-1) * np.trace(multi_dot([Kx, H, Ky, H])) 
 
 
 kind = 'tangent'
@@ -64,9 +64,37 @@ kind = 'tangent'
 # site_ = np.zeros((yt.shape[0], site_mat.shape[1]))
 # site_[:, 0]=1
 
-Xcc, pheno = problem.get_data(atlas='cc200', kind=kind, return_pheno=True)
-Xaal = problem.get_data(atlas='aal', kind=kind)
-Xho = problem.get_data(atlas='ho', kind=kind)
+# Xcc, pheno = problem.get_data(atlas='cc200', kind=kind, return_pheno=True)
+# Xaal = problem.get_data(atlas='aal', kind=kind)
+# Xho = problem.get_data(atlas='ho', kind=kind)
+Xcc_tan, pheno = problem.get_data(atlas='cc200', kind='tangent', return_pheno=True)
+Xcc_cor = problem.get_data(atlas='cc200', kind='correlation')
+Xcc_cov = problem.get_data(atlas='cc200', kind='covariance')
+
+X = dict()
+X['cc1'] = Xcc_tan[:, 400:]
+X['cc2'] = Xcc_cor[:, 400:]
+X['cc3'] = Xcc_cov[:, 400:]
+X['cc4'] = Xcc_tan[:, :400]
+
+Xaal_tan = problem.get_data(atlas='aal', kind='tangent')
+Xaal_cor = problem.get_data(atlas='aal', kind='correlation')
+Xaal_cov = problem.get_data(atlas='aal', kind='covariance')
+
+X['aa1'] = Xaal_tan[:, 232:]
+X['aa2'] = Xaal_cor[:, 232:]
+X['aa3'] = Xaal_cov[:, 232:]
+X['aa4'] = Xaal_tan[:, :232]
+
+Xho_tan = problem.get_data(atlas='ho', kind='tangent')
+Xho_cor = problem.get_data(atlas='ho', kind='correlation')
+Xho_cov = problem.get_data(atlas='ho', kind='covariance')
+
+X['ho1'] = Xho_tan[:, 220:]
+X['ho2'] = Xho_cor[:, 220:]
+X['ho3'] = Xho_cov[:, 220:]
+X['ho4'] = Xho_tan[:, :220]
+
 yt = pheno['DX'].values
 
 # clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
@@ -74,39 +102,35 @@ yt = pheno['DX'].values
 # results = cross_validate(clf, X, y, scoring=['roc_auc', 'accuracy'], cv=5,
 #                         verbose=1, return_train_score=True, n_jobs=3)
 
-# skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=144)
+y = yt
 
-# pred = np.zeros(y.shape)
-# prob = np.zeros(y.shape)
-# for train, test in skf.split(Xcc, y):
-#    clf_cc = make_pipeline(StandardScaler(), LogisticRegression(C=1.))#SVC(kernel='linear', probability=True))
-#    clf_aal = make_pipeline(StandardScaler(), LogisticRegression(C=1.))#SVC(kernel='linear', probability=True))
-#    clf_ho = make_pipeline(StandardScaler(), LogisticRegression(C=1.))#SVC(kernel='linear', probability=True))
-#    tr_idx, va_idx = train_test_split(range(y[train].size), test_size=0.33,
-#                                      shuffle=True, random_state=42)
-#    
-#    
-#    
-#    clf_cc.fit(Xcc[train][tr_idx], y[train][tr_idx])
-#    clf_aal.fit(Xaal[train][tr_idx], y[train][tr_idx])
-#    clf_ho.fit(Xho[train][tr_idx], y[train][tr_idx])
-#    
-#    prob_cc_valid = clf_cc.predict_proba(Xcc[train][va_idx])
-#    prob_aal_valid = clf_aal.predict_proba(Xaal[train][va_idx])
-#    prob_ho_valid = clf_ho.predict_proba(Xho[train][va_idx])
-#    
-#    meta_clf = LogisticRegression(C=1.)
-#    
-#    meta_clf.fit(np.concatenate([prob_cc_valid, prob_aal_valid, prob_ho_valid], 
-#                                axis=1), y[train][va_idx])
-#    
-#    prob_cc_test = clf_cc.predict_proba(Xcc[test])
-#    prob_aal_test = clf_aal.predict_proba(Xaal[test])
-#    prob_ho_test = clf_ho.predict_proba(Xho[test])
-#    
-#    pred[test]=meta_clf.predict(np.concatenate([prob_cc_test, prob_aal_test, prob_ho_test], axis=1))
-#    prob[test]=meta_clf.predict_proba(np.concatenate([prob_cc_test, prob_aal_test, prob_ho_test], axis=1))[:,0]
+skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=144)
+
+pred = np.zeros(y.shape)
+prob = np.zeros(y.shape)
+
+for train, test in skf.split(Xcc_tan, yt):
+    tr_idx, va_idx = train_test_split(range(y[train].size), test_size=0.5,
+                                        shuffle=True, random_state=42)
+    clf = dict()
+    scores = []
+    for key in X:
+        Xdata = X[key]
+        clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
+        clf[key].fit(Xdata[train][tr_idx], y[train][tr_idx])
+        scores.append(clf[key].predict(Xdata[train][va_idx]).reshape(-1, 1))
     
+    meta_clf = LogisticRegression(C=1., solver='lbfgs', max_iter=10000)
+    meta_clf.fit(np.concatenate(scores, axis=1), y[train][va_idx])
+
+    scores_ = []
+    for key in X:
+        Xdata = X[key]
+        scores_.append(clf[key].predict(Xdata[test]).reshape(-1, 1))
+
+    pred[test]=meta_clf.predict(np.concatenate(scores_, axis=1))
+    prob[test]=meta_clf.predict_proba(np.concatenate(scores_, axis=1))[:,0]
+
     
 # =============================================================================
 #     clf_cc = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
@@ -115,8 +139,8 @@ yt = pheno['DX'].values
 #     prob[test] = clf_cc.predict_proba(Xcc[test])[:,0]
 # =============================================================================
 
-# print('Acc',accuracy_score(y, pred))
-# print('AUC',roc_auc_score(y, prob))
+print('Acc',accuracy_score(y, pred))
+print('AUC',roc_auc_score(y, prob))
 
 sex_ = pheno['Sex']
 age_ = pheno['Age']
@@ -125,7 +149,7 @@ hand_ = pheno['Edinburgh_Handedness']
 
 scaler = StandardScaler()
 
-sex = sex_converter(sex_).reshape(-1, 1)
+sex = sex2onehot(sex_).reshape(-1, 1)
 age = scaler.fit_transform(age_.values.reshape(-1, 1))
 iq = scaler.fit_transform(iq_.values.reshape(-1, 1))
 hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
