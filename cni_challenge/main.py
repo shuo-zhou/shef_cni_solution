@@ -4,7 +4,7 @@ Created on Sun Aug  4 11:41:51 2019
 
 @author: sz144
 """
-
+import scipy
 import numpy as np
 from numpy.linalg import multi_dot
 import pandas as pd
@@ -97,6 +97,11 @@ X['ho4'] = Xho_tan[:, :220]
 
 yt = pheno['DX'].values
 
+scaler = StandardScaler()
+
+for key in X:
+    X[key] = scaler.fit_transform(X[key])
+
 # clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.))
 
 # results = cross_validate(clf, X, y, scoring=['roc_auc', 'accuracy'], cv=5,
@@ -104,68 +109,89 @@ yt = pheno['DX'].values
 
 y = yt
 
-skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=144)
-
-pred = np.zeros(y.shape)
-prob = np.zeros(y.shape)
-
-for train, test in skf.split(Xcc_tan, yt):
-    tr_idx, va_idx = train_test_split(range(y[train].size), test_size=0.5,
-                                        shuffle=True, random_state=42)
-    clf = dict()
-    scores = []
-    for key in X:
-        Xdata = X[key]
-        clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
-        clf[key].fit(Xdata[train][tr_idx], y[train][tr_idx])
-        scores.append(clf[key].predict(Xdata[train][va_idx]).reshape(-1, 1))
-    
-    meta_clf = LogisticRegression(C=1., solver='lbfgs', max_iter=10000)
-    meta_clf.fit(np.concatenate(scores, axis=1), y[train][va_idx])
-
-    scores_ = []
-    for key in X:
-        Xdata = X[key]
-        scores_.append(clf[key].predict(Xdata[test]).reshape(-1, 1))
-
-    pred[test]=meta_clf.predict(np.concatenate(scores_, axis=1))
-    prob[test]=meta_clf.predict_proba(np.concatenate(scores_, axis=1))[:,0]
-
-    
-# =============================================================================
-#     clf_cc = make_pipeline(StandardScaler(), SVC(kernel='linear', probability=True))
-#     clf_cc.fit(Xcc[train], y[train])
-#     pred[test] = clf_cc.predict(Xcc[test])
-#     prob[test] = clf_cc.predict_proba(Xcc[test])[:,0]
-# =============================================================================
-
-print('Acc',accuracy_score(y, pred))
-print('AUC',roc_auc_score(y, prob))
-
 sex_ = pheno['Sex']
 age_ = pheno['Age']
 iq_ = pheno['WISC_FSIQ']
 hand_ = pheno['Edinburgh_Handedness']
 
 scaler = StandardScaler()
-
 sex = sex2onehot(sex_).reshape(-1, 1)
 age = scaler.fit_transform(age_.values.reshape(-1, 1))
 iq = scaler.fit_transform(iq_.values.reshape(-1, 1))
 hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
+
+D = np.concatenate((sex, hand), axis=1)
+
+acc = []
+auc = []
+for i in range(10):
+    skf = StratifiedKFold(n_splits=2, shuffle=True, random_state=144*i)
+
+    pred = np.zeros(y.shape)
+    prob = np.zeros(y.shape)
+    score = np.zeros(y.shape)
+
+    for train, test in skf.split(Xcc_tan, yt):
+        # tr_idx, va_idx = train_test_split(range(y[train].size), test_size=0.5,
+        #                                   shuffle=True, random_state=42)
+        # clf = dict()
+        # scores = []
+        # for key in X:
+        #     Xdata = X[key]
+        #     clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
+        #     clf[key].fit(Xdata[train][tr_idx], y[train][tr_idx])
+        #     scores.append(clf[key].decision_function(Xdata[train][va_idx]).reshape(-1, 1))
+        #
+        # meta_clf = LogisticRegression(C=1., solver='lbfgs', max_iter=10000)
+        # meta_clf.fit(np.concatenate(scores, axis=1), y[train][va_idx])
+        #
+        # scores_ = []
+        # for key in X:
+        #     Xdata = X[key]
+        #     scores_.append(clf[key].predict(Xdata[test]).reshape(-1, 1))
+        #
+        # pred[test] = meta_clf.predict(np.concatenate(scores_, axis=1))
+        # prob[test] = meta_clf.predict_proba(np.concatenate(scores_, axis=1))[:, 0]
+
+        clf = dict()
+        score_list = []
+        pred_list = []
+        for key in X:
+            Xdata = X[key]
+            # clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
+            clf[key] = DISVM(kernel='linear', C=0.1, lambda_=0.1)
+            clf[key].fit(Xdata[train], Xdata[test], y[train], D[train], D[test])
+            pred_list.append(clf[key].predict(Xdata[test]).reshape(-1, 1))
+            score_list.append(clf[key].decision_function(Xdata[test]).reshape(-1, 1))
+
+        preds = np.concatenate(pred_list, axis=1)
+        scores = np.concatenate(pred_list, axis=1)
+        # pred[test] = scipy.stats.mode(preds, axis=1)[0].reshape(pred[test].shape)
+        score[test] = np.mean(scores, axis=1)
+        pred[test] = np.sign(score[test])
+
+    acc.append(accuracy_score(y, pred))
+    auc.append(roc_auc_score(y, score))
+    print('Acc', acc[-1])
+    print('AUC', auc[-1])
+
+print('Mean Auc: ', np.mean(auc), 'AUC std: ', np.std(auc))
+print('Mean Acc: ', np.mean(acc), 'Acc std: ', np.std(acc))
+
+
 
 # print(get_hsic(X, sex))
 # print(get_hsic(X, age))
 # print(get_hsic(X, iq))
 # print(get_hsic(X, hand))
 
-A = np.concatenate((sex, hand), axis=1)
+
 # A = hand
 # A = np.concatenate((site_mat, site_))
 # A = np.concatenate((np.concatenate((site_mat, site_)),
 #                    np.concatenate((sex_src, sex))), axis=1)
 # A = np.concatenate((sex_src, sex))
-scaler = StandardScaler()
+
 # X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
 X = scaler.fit_transform(Xcc)
 # X = np.concatenate((Xs, Xaal))

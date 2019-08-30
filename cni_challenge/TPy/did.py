@@ -55,22 +55,22 @@ class DISVM(BaseEstimator, TransformerMixin):
         self.C = C
         self.solver = solver
 
-    def fit(self, X_train, X_test, y, A_train, A_test, W=None):
+    def fit(self, X_train, X_test, y, D_train, D_test, W=None):
         """
         solve min_x x^TPx + q^Tx, s.t. Gx<=h, Ax=b
         Parameters:
             X_train: Training data, array-like, shape (n_train_samples, n_feautres)
             X_test: Testing data, array-like, shape (n_test_samples, n_feautres)
             y: Label, array-like, shape (n_train_samples, )
-            A_train: Domain covariate matrix for training data, array-like, shape (n_train_samples, n_covariates)
-            A_test: Domain covariate matrix for testing data, array-like, shape (n_test_samples, n_covariates)
+            D_train: Domain covariate matrix for training data, array-like, shape (n_train_samples, n_covariates)
+            D_test: Domain covariate matrix for testing data, array-like, shape (n_test_samples, n_covariates)
         """
 
         n_train = X_train.shape[0]
         X = np.concatenate((X_train, X_test))
         n = X.shape[0]
-        A = np.concatenate((A_train, A_test))
-        Ka = np.dot(A, A.T)
+        D = np.concatenate((D_train, D_test))
+        Ka = np.dot(D, D.T)
         I = np.eye(n)
         H = I - 1. / n * np.ones((n, n))
         K = get_kernel(X, kernel=self.kernel, **self.kwargs)
