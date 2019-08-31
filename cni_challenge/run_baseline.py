@@ -4,6 +4,7 @@ import pandas as pd
 from nilearn.connectome import ConnectivityMeasure
 from sklearn.preprocessing import StandardScaler
 from TPy.did import DISVM
+from sklearn.metrics import accuracy_score, roc_auc_score
 
 train_dir = './inputdir'
 outputdir = './outputdir'
@@ -73,7 +74,7 @@ def run_baseline(test_dir, outdir, atlas='aal'):
     for i in range(n_sub):
         X_meanstd[i, :n_roi] = np.mean(X_all[i], axis=0)
         X_meanstd[i, n_roi:] = np.std(X_all[i], axis=0)
-    X = np.concatenate([X_connectome, X_meanstd], axis=1)
+    X = np.concatenate([X_meanstd, X_connectome], axis=1)
 
     sex_train = pheno_train['Sex'].values
     age_train = pheno_train['Age'].values
