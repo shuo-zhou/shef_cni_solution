@@ -83,10 +83,18 @@ Xaal_tan = problem.get_data(atlas='aal', kind='tangent')
 Xaal_cor = problem.get_data(atlas='aal', kind='correlation')
 Xaal_cov = problem.get_data(atlas='aal', kind='covariance')
 
-X['aa1'] = Xaal_tan[:, 232:]
-X['aa2'] = Xaal_cor[:, 232:]
-X['aa3'] = Xaal_cov[:, 232:]
-X['aa4'] = Xaal_tan[:, :232]
+X['aa1'] = Xaal_tan  # [:, 232:]
+X['aa2'] = Xaal_cor  # [:, 232:]
+X['aa3'] = Xaal_cov  # [:, 232:]
+
+X_train, pheno_train = problem.get_train_data(atlas='aal')
+X_valid, pheno_valid = problem.get_valid_data(atlas='aal')
+X_all = X_train + X_valid
+measure = ConnectivityMeasure(kind='correlation')
+X_cor = measure.fit_transform(X_all)
+measure = ConnectivityMeasure(kind='tangent', vectorize=True)
+X_ = measure.fit_transform(X_cor)
+# X['aa4'] = Xaal_tan  # [:, :232]
 
 # Xho_tan = problem.get_data(atlas='ho', kind='tangent')
 # Xho_cor = problem.get_data(atlas='ho', kind='correlation')
@@ -196,7 +204,7 @@ print('Mean Acc: ', np.mean(acc), 'Acc std: ', np.std(acc))
 # A = np.concatenate((sex_src, sex))
 
 # X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
-X_ = scaler.fit_transform(Xaal_tan)
+X_ = scaler.fit_transform(X_)
 # X = np.concatenate((Xs, Xaal))
 # X = scaler.fit_transform(X)
 # y = np.concatenate((ys, yt))
