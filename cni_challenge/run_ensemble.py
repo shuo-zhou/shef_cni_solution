@@ -120,7 +120,7 @@ def run_model(test_dir, outdir, atlas='aal'):
         score_list.append(clf[key].decision_function(Xdata[n_train:, :]).reshape(-1, 1))
 
     preds = np.concatenate(pred_list, axis=1)
-    scores = np.concatenate(pred_list, axis=1)
+    scores = np.concatenate(score_list, axis=1)
     pred = scipy.stats.mode(preds, axis=1)[0].reshape(n_sub-n_train)
     score = np.sum(scores, axis=1)
 
