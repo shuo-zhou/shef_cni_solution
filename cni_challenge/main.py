@@ -19,7 +19,6 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from nilearn.connectome import ConnectivityMeasure
 from TPy.did import DISVM
-from get_adhd200_data import load_adhd200
 
 
 def sex2onehot(sex_):
@@ -175,12 +174,12 @@ for i in range(10):
 
     acc.append(accuracy_score(y, pred))
     auc.append(roc_auc_score(y, score))
+
     print('Acc', acc[-1])
     print('AUC', auc[-1])
 
 print('Mean Auc: ', np.mean(auc), 'AUC std: ', np.std(auc))
 print('Mean Acc: ', np.mean(acc), 'Acc std: ', np.std(acc))
-
 
 
 # print(get_hsic(X, sex))
@@ -209,6 +208,8 @@ n_splits = 2
 
 for i in range(10):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=144*i)
+    pred_train = np.zeros(y.shape)
+    score_train = np.zeros(y.shape)
     pred = np.zeros(y.shape)
     dec = np.zeros(y.shape)
     for train, test in skf.split(X_, y):
@@ -221,8 +222,13 @@ for i in range(10):
 
         pred[test] = clf.predict(X_[test])
         dec[test] = clf.decision_function(X_[test])
+        pred_train[train] = clf.predict(X_[train])
+        score_train[train] = clf.decision_function(X_[train])
     acc.append(accuracy_score(y, pred))
     auc.append(roc_auc_score(y, dec))
+
+    print('Train acc:', accuracy_score(y, pred_train))
+    print('Train AUC: ', roc_auc_score(y, score_train))
     print('Acc', acc[-1])
     print('AUC', auc[-1])
 print('Mean Auc: ', np.mean(auc), 'AUC std: ', np.std(auc))
