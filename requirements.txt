@@ -1,0 +1,10 @@
+chrisapp
+pudb
+numpy
+scipy
+pandas
+scikit-learn
+nibabel
+nilearn
+cvxopt
+osqp
