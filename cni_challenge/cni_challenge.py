@@ -82,12 +82,6 @@ Gstr_synopsis = """
         <outputDir>
         Mandatory. A directory where output will be saved to. Must be universally writable to.
         
-        [--run_option < python || C >]
-        Mandatory for bare bones example. C example still to come!
-        
-        [--rot <matrix_file.txt>]
-        Mandatory for bare bones example. String of file containing rotation matrices.
-
         [-h] [--help]
         If specified, show help message and exit.
         
