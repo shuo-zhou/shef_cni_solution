@@ -74,7 +74,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         I = np.eye(n)
         H = I - 1. / n * np.ones((n, n))
         K = get_kernel(X, kernel=self.kernel, **self.kwargs)
-        K_train = get_kernel(X_train, X, kernel=self.kernel, **self.kwargs)
+
         K[np.isnan(K)] = 0
         if W is None:
             W = np.eye(n)
@@ -92,7 +92,7 @@ class DISVM(BaseEstimator, TransformerMixin):
             G[:n_train, :] = -1 * np.eye(n_train)
             G[n_train:, :] = np.eye(n_train)
             h = np.zeros((2 * n_train, 1))
-            h[n_train:, :] = self.C
+            h[n_train:, :] = self.C / n_train
 
             # convert numpy matrix to cvxopt matrix
             P = matrix(Q)
@@ -114,10 +114,10 @@ class DISVM(BaseEstimator, TransformerMixin):
             G = sparse.vstack([sparse.eye(n_train), y.reshape(1, -1)]).tocsc()
             l = np.zeros((n_train+1, 1))
             u = np.zeros(l.shape)
-            u[:n_train, 0] = self.C
+            u[:n_train, 0] = self.C / n_train
 
             prob = osqp.OSQP()
-            prob.setup(P, q, G, l, u)
+            prob.setup(P, q, G, l, u, verbose=False)
             res = prob.solve()
             self.alpha = res.x
 
@@ -129,8 +129,9 @@ class DISVM(BaseEstimator, TransformerMixin):
         self.support_ = np.where((self.alpha > 0) & (self.alpha < self.C))
         self.support_vectors_ = X_train[self.support_]
         self.n_support_ = self.support_vectors_.shape[0]
-        self.intercept_ = np.mean(y[self.support_] - y[self.support_] *
-                                  np.dot(K_train[self.support_], self.coef_))/self.n_support_
+        # K_train = get_kernel(X_train, X, kernel=self.kernel, **self.kwargs)
+        # self.intercept_ = np.mean(y[self.support_] - y[self.support_] *
+        #                           np.dot(K_train[self.support_], self.coef_))/self.n_support_
 
 # =============================================================================
 #         beta = cvx.Variable(shape = (2 * n, 1))
@@ -164,7 +165,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         check_is_fitted(self, 'X')
         check_is_fitted(self, 'y')
         K = get_kernel(X, self.X, kernel=self.kernel, **self.kwargs)
-        return np.dot(K, self.coef_)+self.intercept_
+        return np.dot(K, self.coef_)  # +self.intercept_
 
     def predict(self, X):
         """

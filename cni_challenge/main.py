@@ -67,15 +67,17 @@ kind = 'tangent'
 # Xcc, pheno = problem.get_data(atlas='cc200', kind=kind, return_pheno=True)
 # Xaal = problem.get_data(atlas='aal', kind=kind)
 # Xho = problem.get_data(atlas='ho', kind=kind)
+
+X = dict()
+
 Xcc_tan, pheno = problem.get_data(atlas='cc200', kind='tangent', return_pheno=True)
 Xcc_cor = problem.get_data(atlas='cc200', kind='correlation')
 Xcc_cov = problem.get_data(atlas='cc200', kind='covariance')
 
-X = dict()
-X['cc1'] = Xcc_tan[:, 400:]
-X['cc2'] = Xcc_cor[:, 400:]
-X['cc3'] = Xcc_cov[:, 400:]
-X['cc4'] = Xcc_tan[:, :400]
+# X['cc1'] = Xcc_tan[:, 400:]
+# X['cc2'] = Xcc_cor[:, 400:]
+# X['cc3'] = Xcc_cov[:, 400:]
+# X['cc4'] = Xcc_tan[:, :400]
 
 Xaal_tan = problem.get_data(atlas='aal', kind='tangent')
 Xaal_cor = problem.get_data(atlas='aal', kind='correlation')
@@ -86,14 +88,14 @@ X['aa2'] = Xaal_cor[:, 232:]
 X['aa3'] = Xaal_cov[:, 232:]
 X['aa4'] = Xaal_tan[:, :232]
 
-Xho_tan = problem.get_data(atlas='ho', kind='tangent')
-Xho_cor = problem.get_data(atlas='ho', kind='correlation')
-Xho_cov = problem.get_data(atlas='ho', kind='covariance')
-
-X['ho1'] = Xho_tan[:, 220:]
-X['ho2'] = Xho_cor[:, 220:]
-X['ho3'] = Xho_cov[:, 220:]
-X['ho4'] = Xho_tan[:, :220]
+# Xho_tan = problem.get_data(atlas='ho', kind='tangent')
+# Xho_cor = problem.get_data(atlas='ho', kind='correlation')
+# Xho_cov = problem.get_data(atlas='ho', kind='covariance')
+#
+# X['ho1'] = Xho_tan[:, 220:]
+# X['ho2'] = Xho_cor[:, 220:]
+# X['ho3'] = Xho_cov[:, 220:]
+# X['ho4'] = Xho_tan[:, :220]
 
 yt = pheno['DX'].values
 
@@ -120,8 +122,8 @@ age = scaler.fit_transform(age_.values.reshape(-1, 1))
 iq = scaler.fit_transform(iq_.values.reshape(-1, 1))
 hand = scaler.fit_transform(hand_.values.reshape(-1, 1))
 
-D = np.concatenate((sex, hand), axis=1)
-
+D = np.concatenate((sex, age, hand), axis=1)
+# D = sex
 acc = []
 auc = []
 for i in range(10):
@@ -159,16 +161,17 @@ for i in range(10):
         for key in X:
             Xdata = X[key]
             # clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
-            clf[key] = DISVM(kernel='linear', C=0.1, lambda_=0.1)
+            clf[key] = DISVM(kernel='linear', C=0.1, lambda_=100)
             clf[key].fit(Xdata[train], Xdata[test], y[train], D[train], D[test])
             pred_list.append(clf[key].predict(Xdata[test]).reshape(-1, 1))
             score_list.append(clf[key].decision_function(Xdata[test]).reshape(-1, 1))
 
+        # pred_list.append(np.sign(score[test]).reshape(-1, 1))
         preds = np.concatenate(pred_list, axis=1)
         scores = np.concatenate(pred_list, axis=1)
-        # pred[test] = scipy.stats.mode(preds, axis=1)[0].reshape(pred[test].shape)
+        pred[test] = scipy.stats.mode(preds, axis=1)[0].reshape(pred[test].shape)
         score[test] = np.mean(scores, axis=1)
-        pred[test] = np.sign(score[test])
+        # pred[test] = np.sign(score[test])
 
     acc.append(accuracy_score(y, pred))
     auc.append(roc_auc_score(y, score))
@@ -193,7 +196,7 @@ print('Mean Acc: ', np.mean(acc), 'Acc std: ', np.std(acc))
 # A = np.concatenate((sex_src, sex))
 
 # X = scaler.fit_transform(np.concatenate((Xcc, Xaal, Xho), axis=1))
-X = scaler.fit_transform(Xcc)
+X_ = scaler.fit_transform(Xaal_tan)
 # X = np.concatenate((Xs, Xaal))
 # X = scaler.fit_transform(X)
 # y = np.concatenate((ys, yt))
@@ -208,16 +211,16 @@ for i in range(10):
     skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=144*i)
     pred = np.zeros(y.shape)
     dec = np.zeros(y.shape)
-    for train, test in skf.split(X, y):
-        clf = DISVM(kernel='linear', C=1, lambda_=1, solver='osqp')
-        clf.fit(X[train], X[test], y[train], A[train], A[test])
+    for train, test in skf.split(X_, y):
+        clf = DISVM(kernel='linear', C=0.001, lambda_=1000, solver='osqp')
+        clf.fit(X_[train], X_[test], y[train], D[train], D[test])
 
         # clf=make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
         # clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, solver='lbfgs', max_iter=1000))
         # clf.fit(X[train], y[train])
 
-        pred[test] = clf.predict(X[test])
-        dec[test] = clf.decision_function(X[test])
+        pred[test] = clf.predict(X_[test])
+        dec[test] = clf.decision_function(X_[test])
     acc.append(accuracy_score(y, pred))
     auc.append(roc_auc_score(y, dec))
     print('Acc', acc[-1])

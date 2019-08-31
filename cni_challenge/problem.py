@@ -13,13 +13,13 @@ from sklearn.preprocessing import FunctionTransformer
 
 inputdir = './inputdir'
 outputdir = './outputdir'
-#inputdir = '/home/shuoz/data/CNI19'
-
-#train_path = 'D:/CNI19/2019_CNI_TrainingRelease-master'
-#valid_path = 'D:/CNI19/2019_CNI_ValidationRelease-master'
+# inputdir = '/home/shuoz/data/CNI19'
 #
-#pheno_train = os.path.join(train_path, 'SupportingInfo/phenotypic_training.csv')
-#pheno_valid = os.path.join(valid_path, 'SupportingInfo/phenotypic_validation.csv')
+# train_path = 'D:/CNI19/2019_CNI_TrainingRelease-master'
+# valid_path = 'D:/CNI19/2019_CNI_ValidationRelease-master'
+#
+# pheno_train = os.path.join(train_path, 'SupportingInfo/phenotypic_training.csv')
+# pheno_valid = os.path.join(valid_path, 'SupportingInfo/phenotypic_validation.csv')
 
 def _load_fmri(sub_ids, path, atlas='cc200'):
     """Load time-series extracted from the fMRI using a specific atlas."""
