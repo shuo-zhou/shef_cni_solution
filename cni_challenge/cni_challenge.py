@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(__file__))
 # import the Chris app superclass
 from chrisapp.base import ChrisApp
 # Import a python function that performs a matrix rotation
-from run_baseline import run_baseline
+from run_ensemble import run_model
 
 Gstr_title = """
 
@@ -186,7 +186,7 @@ class Cni_challenge(ChrisApp):
         # Call python module
         print("\n")
         print("\tCalling python code to perform classification...")
-        run_baseline(testdir, outdir, atlas='aal')
+        run_model(testdir, outdir, atlas='aal')
         print("\tOutput will be in %s" % outdir)
         print("====================================================================================")
 

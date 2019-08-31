@@ -1,4 +1,5 @@
 import os
+import scipy
 import numpy as np
 import pandas as pd
 from nilearn.connectome import ConnectivityMeasure
@@ -7,8 +8,6 @@ from TPy.did import DISVM
 from sklearn.metrics import accuracy_score, roc_auc_score
 
 train_dir = './inputdir'
-outputdir = './outputdir'
-
 
 def _load_fmri(sub_ids, path, atlas='cc200'):
     """Load time-series extracted from the fMRI using a specific atlas."""
@@ -56,7 +55,7 @@ def sex2vec(sex_):
     return sex.reshape(-1, 1)
 
 
-def run_baseline(test_dir, outdir, atlas='aal'):
+def run_model(test_dir, outdir, atlas='aal'):
     X_train, pheno_train = get_train_data(atlas=atlas)
     X_test, pheno_test = get_test_data(test_dir, atlas=atlas)
     X_all = X_train + X_test
@@ -67,14 +66,28 @@ def run_baseline(test_dir, outdir, atlas='aal'):
 
     n_roi = X_all[0].shape[1]
 
-    measure = ConnectivityMeasure(kind='tangent', vectorize=True)
+    X_ = dict()
+    measure = ConnectivityMeasure(kind='correlation')
+    X_cor = measure.fit_transform(X_all)
 
-    X_connectome = measure.fit_transform(X_all)
-    X_meanstd = np.zeros((n_sub, n_roi*2))
+    measure = ConnectivityMeasure(kind='correlation', vectorize=True)
+    X_['cor'] = measure.fit_transform(X_all)
+
+    measure = ConnectivityMeasure(kind='tangent', vectorize=True)
+    X_['tan'] = measure.fit_transform(X_all)
+    X_['tancor'] = measure.fit_transform(X_cor)
+
+    measure = ConnectivityMeasure(kind='covariance', vectorize=True)
+    X_['cov'] = measure.fit_transform(X_all)
+
+    X_['meanstd'] = np.zeros((n_sub, n_roi*2))
     for i in range(n_sub):
-        X_meanstd[i, :n_roi] = np.mean(X_all[i], axis=0)
-        X_meanstd[i, n_roi:] = np.std(X_all[i], axis=0)
-    X = np.concatenate([X_meanstd, X_connectome], axis=1)
+        X_['meanstd'][i, :n_roi] = np.mean(X_all[i], axis=0)
+        X_['meanstd'][i, n_roi:] = np.std(X_all[i], axis=0)
+
+    for key in X_:
+        scaler = StandardScaler()
+        X_[key] = scaler.fit_transform(X_[key])
 
     sex_train = pheno_train['Sex'].values
     age_train = pheno_train['Age'].values
@@ -94,11 +107,22 @@ def run_baseline(test_dir, outdir, atlas='aal'):
 
     D = np.concatenate([sex, age, hand], axis=1)
 
-    clf = DISVM(kernel='linear', C=0.01, lambda_=1000, solver='osqp')
-    clf.fit(X[:n_train, :], X[n_train:, :], y_train, D[:n_train, :], D[n_train:, :])
+    clf = dict()
+    pred_list = []
+    score_list = []
 
-    pred = clf.predict(X[n_train:, :])
-    score = clf.decision_function(X[n_train:, :])
+    for key in X_:
+        Xdata = X_[key]
+        # clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
+        clf[key] = DISVM(kernel='linear', C=0.01, lambda_=100)
+        clf[key].fit(Xdata[:n_train, :], Xdata[n_train:, :], y_train, D[:n_train, :], D[n_train:, :])
+        pred_list.append(clf[key].predict(Xdata[n_train:, :]).reshape(-1, 1))
+        score_list.append(clf[key].decision_function(Xdata[n_train:, :]).reshape(-1, 1))
+
+    preds = np.concatenate(pred_list, axis=1)
+    scores = np.concatenate(pred_list, axis=1)
+    pred = scipy.stats.mode(preds, axis=1)[0].reshape(n_sub-n_train)
+    score = np.sum(scores, axis=1)
 
     for i in range(pred.shape[0]):
         if pred[i] == -1:
@@ -106,5 +130,3 @@ def run_baseline(test_dir, outdir, atlas='aal'):
 
     np.savetxt('%s/%s' % (outdir, 'classification.txt'), pred, fmt='%0.7f', delimiter='\t')
     np.savetxt('%s/%s' % (outdir, 'score.txt'), score, fmt='%0.7f', delimiter='\t')
-
-
