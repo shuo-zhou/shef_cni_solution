@@ -72,8 +72,10 @@ def run_baseline(test_dir, outdir, atlas='aal'):
     for i in range(n_sub):
         X_meanstd[i, :n_roi] = np.mean(X_all[i], axis=0)
         X_meanstd[i, n_roi:] = np.std(X_all[i], axis=0)
-        
+
+    scaler = StandardScaler()
     X = np.concatenate([X_meanstd, X_connectome], axis=1)
+    X = scaler.fit_transform(X)
 
     sex_train = pheno_train['Sex'].values
     age_train = pheno_train['Age'].values
@@ -82,8 +84,6 @@ def run_baseline(test_dir, outdir, atlas='aal'):
     sex_test = pheno_test['Sex'].values
     age_test = pheno_test['Age'].values
     hand_test = pheno_test['Edinburgh_Handedness'].values
-
-    scaler = StandardScaler()
 
     sex = np.concatenate([sex2vec(sex_train), sex2vec(sex_test)])
     age = np.concatenate([scaler.fit_transform(age_train.reshape(-1, 1)),
