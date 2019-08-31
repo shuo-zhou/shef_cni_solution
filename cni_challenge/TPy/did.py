@@ -54,6 +54,7 @@ class DISVM(BaseEstimator, TransformerMixin):
         self.lambda_ = lambda_
         self.C = C
         self.solver = solver
+        self.scaler = StandardScaler()
 
     def fit(self, X_train, X_test, y, D_train, D_test, W=None):
         """
@@ -68,6 +69,7 @@ class DISVM(BaseEstimator, TransformerMixin):
 
         n_train = X_train.shape[0]
         X = np.concatenate((X_train, X_test))
+        X = self.scaler.fit_transform(X)
         n = X.shape[0]
         D = np.concatenate((D_train, D_test))
         Ka = np.dot(D, D.T)
@@ -164,7 +166,8 @@ class DISVM(BaseEstimator, TransformerMixin):
         """
         check_is_fitted(self, 'X')
         check_is_fitted(self, 'y')
-        K = get_kernel(X, self.X, kernel=self.kernel, **self.kwargs)
+        K = get_kernel(self.scaler.transform(X), self.X,
+                       kernel=self.kernel, **self.kwargs)
         return np.dot(K, self.coef_)  # +self.intercept_
 
     def predict(self, X):
@@ -175,7 +178,7 @@ class DISVM(BaseEstimator, TransformerMixin):
             predicted labels, array-like, shape (n_samples)
         """
         
-        return np.sign(self.decision_function(X))
+        return np.sign(self.decision_function(self.scaler.transform(X)))
 
     def fit_predict(self, X_train, X_test, y, D_train, D_test, W = None):
         """

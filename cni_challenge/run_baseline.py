@@ -65,10 +65,12 @@ def run_baseline(test_dir, outdir, atlas='aal'):
 
     n_roi = X_all[0].shape[1]
 
+    measure = ConnectivityMeasure(kind='correlation')
+    X_cor = measure.fit_transform(X_all)
     measure = ConnectivityMeasure(kind='tangent', vectorize=True)
-
-    X_connectome = measure.fit_transform(X_all)
+    X_connectome = measure.fit_transform(X_cor)
     X_meanstd = np.zeros((n_sub, n_roi*2))
+
     for i in range(n_sub):
         X_meanstd[i, :n_roi] = np.mean(X_all[i], axis=0)
         X_meanstd[i, n_roi:] = np.std(X_all[i], axis=0)
