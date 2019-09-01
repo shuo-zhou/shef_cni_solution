@@ -114,7 +114,7 @@ def run_model(test_dir, outdir, atlas='aal'):
     for key in X_:
         Xdata = X_[key]
         # clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
-        clf[key] = DISVM(kernel='linear', C=0.01, lambda_=100)
+        clf[key] = DISVM(kernel='linear', C=0.001, lambda_=100)
         clf[key].fit(Xdata[:n_train, :], Xdata[n_train:, :], y_train, D[:n_train, :], D[n_train:, :])
         pred_list.append(clf[key].predict(Xdata[n_train:, :]).reshape(-1, 1))
         score_list.append(clf[key].decision_function(Xdata[n_train:, :]).reshape(-1, 1))
