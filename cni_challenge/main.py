@@ -86,6 +86,7 @@ Xaal_cov = problem.get_data(atlas='aal', kind='covariance')
 X['aa1'] = Xaal_tan  # [:, 232:]
 X['aa2'] = Xaal_cor  # [:, 232:]
 X['aa3'] = Xaal_cov  # [:, 232:]
+X['aa4'] = Xaal_tan  # [:, :232]
 
 X_train, pheno_train = problem.get_train_data(atlas='aal')
 X_valid, pheno_valid = problem.get_valid_data(atlas='aal')
@@ -94,7 +95,7 @@ measure = ConnectivityMeasure(kind='correlation')
 X_cor = measure.fit_transform(X_all)
 measure = ConnectivityMeasure(kind='tangent', vectorize=True)
 X_ = measure.fit_transform(X_cor)
-# X['aa4'] = Xaal_tan  # [:, :232]
+X['aa5'] = X_
 
 # Xho_tan = problem.get_data(atlas='ho', kind='tangent')
 # Xho_cor = problem.get_data(atlas='ho', kind='correlation')
@@ -169,7 +170,7 @@ for i in range(10):
         for key in X:
             Xdata = X[key]
             # clf[key] = make_pipeline(StandardScaler(), SVC(kernel='linear', max_iter=10000))
-            clf[key] = DISVM(kernel='linear', C=0.1, lambda_=100)
+            clf[key] = DISVM(kernel='linear', C=0.001, lambda_=100)
             clf[key].fit(Xdata[train], Xdata[test], y[train], D[train], D[test])
             pred_list.append(clf[key].predict(Xdata[test]).reshape(-1, 1))
             score_list.append(clf[key].decision_function(Xdata[test]).reshape(-1, 1))
@@ -220,7 +221,7 @@ for i in range(10):
     pred = np.zeros(y.shape)
     dec = np.zeros(y.shape)
     for train, test in skf.split(X_, y):
-        clf = DISVM(kernel='linear', C=0.001, lambda_=1000, solver='osqp')
+        clf = DISVM(kernel='linear', C=0.001, lambda_=100, solver='osqp')
         clf.fit(X_[train], X_[test], y[train], D[train], D[test])
 
         # clf=make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
