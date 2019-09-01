@@ -95,7 +95,7 @@ def run_baseline(test_dir, outdir, atlas='aal'):
 
     D = np.concatenate([sex, age, hand], axis=1)
 
-    clf = DISVM(kernel='linear', C=0.01, lambda_=1000, solver='osqp')
+    clf = DISVM(kernel='linear', C=0.001, lambda_=1000, solver='osqp')
     clf.fit(X[:n_train, :], X[n_train:, :], y_train, D[:n_train, :], D[n_train:, :])
 
     pred = clf.predict(X[n_train:, :])
