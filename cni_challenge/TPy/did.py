@@ -38,7 +38,7 @@ def get_kernel(X, Y=None, kernel='linear', **kwargs):
 
 
 class DISVM(BaseEstimator, TransformerMixin):
-    def __init__(self, C=1, kernel='linear', lambda_=1, solver='cvxopt', **kwargs):
+    def __init__(self, C=1, kernel='linear', lambda_=1, solver='osqp', **kwargs):
         """
         Init function
         Parameters
