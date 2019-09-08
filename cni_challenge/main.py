@@ -224,9 +224,10 @@ for i in range(10):
         clf = DISVM(kernel='linear', C=0.001, lambda_=100, solver='osqp')
         clf.fit(X_[train], X_[test], y[train], D[train], D[test])
 
-        # clf=make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
+        # clf = make_pipeline(StandardScaler(), SVC(kernel='linear', C=0.1, max_iter=1000))
         # clf = make_pipeline(StandardScaler(), LogisticRegression(C=1.0, solver='lbfgs', max_iter=1000))
-        # clf.fit(X[train], y[train])
+        # clf = LogisticRegression(C=1.0, solver='lbfgs', max_iter=1000)
+        # clf.fit(X_[train], y[train])
 
         pred[test] = clf.predict(X_[test])
         dec[test] = clf.decision_function(X_[test])
