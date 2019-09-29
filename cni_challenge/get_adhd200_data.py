@@ -9,11 +9,11 @@ import os
 import numpy as np
 import pandas as pd
 
-#basedir = '/home/shuoz/data/adhd200/athena_TCs'
+# basedir = '/home/shuoz/data/adhd200/athena_TCs'
+#
 basedir = 'D:/CNI19'
-sites=['NYU','NeuroIMAGE','KKI','OHSU','Peking_1','Peking_2','Peking_3',
-       'Pittsburgh','WashU']
-
+sites=['NYU', 'NeuroIMAGE', 'KKI', 'OHSU', 'Peking_1', 'Peking_2', 'Peking_3',
+       'Pittsburgh', 'WashU']
 
 
 def load_adhd200(atlas='cc200'):
@@ -52,6 +52,3 @@ def load_adhd200(atlas='cc200'):
         pheno_list.append(site_pheno)
     pheno = pd.concat(pheno_list, axis=0, sort=False)
     return tc_data, pheno
-                
-            
-        

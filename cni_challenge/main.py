@@ -191,7 +191,6 @@ print('Mean Auc: ', np.mean(auc), 'AUC std: ', np.std(auc))
 print('Mean Acc: ', np.mean(acc), 'Acc std: ', np.std(acc))
 
 
-
 # print(get_hsic(X, sex))
 # print(get_hsic(X, age))
 # print(get_hsic(X, iq))

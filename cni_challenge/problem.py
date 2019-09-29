@@ -21,6 +21,7 @@ outputdir = './outputdir'
 # pheno_train = os.path.join(train_path, 'SupportingInfo/phenotypic_training.csv')
 # pheno_valid = os.path.join(valid_path, 'SupportingInfo/phenotypic_validation.csv')
 
+
 def _load_fmri(sub_ids, path, atlas='cc200'):
     """Load time-series extracted from the fMRI using a specific atlas."""
     return [pd.read_csv(os.path.join(path,'%s/timeseries_%s.csv'%(sub_id, atlas)), 
@@ -38,12 +39,13 @@ def _load_data(partition='Training', atlas='cc200'):
     pheno_df_ = pheno_df.copy()
     
     for i in pheno_df_.index.values:
-        if pheno_df_.loc[i,'DX'] == 'ADHD':
-            pheno_df_.loc[i,'DX'] = 1
+        if pheno_df_.loc[i, 'DX'] == 'ADHD':
+            pheno_df_.loc[i, 'DX'] = 1
         else:
-            pheno_df_.loc[i,'DX'] = -1
+            pheno_df_.loc[i, 'DX'] = -1
             
     return data, pheno_df_
+
 
 def get_data(kind='tangent', atlas='cc200', return_pheno=False):
     pheno_path = os.path.join(inputdir, 'pheno.csv')
@@ -78,6 +80,7 @@ def get_data(kind='tangent', atlas='cc200', return_pheno=False):
 
 def get_train_data(atlas='cc200'):
     return _load_data(partition='Training', atlas=atlas)
+
 
 def get_valid_data(atlas='cc200'):
     return _load_data(partition='Validation', atlas=atlas)
